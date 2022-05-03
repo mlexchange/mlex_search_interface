@@ -113,7 +113,7 @@ image_search_card = dbc.Card(
                 ),
             dbc.Col(
                 dcc.Dropdown(
-                    ['Brute Force (BF)', 'Locality-Sensitive Hashing (LSH)'],
+                    ['Brute Force (bf)', 'KDTree (kd)', 'BallTree (bt)'],
                     id = 'searching-method',
                     placeholder = "Select Searching Method",
                     )

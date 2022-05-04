@@ -3,7 +3,7 @@ from elasticsearch_dsl import Search, Index, Document, UpdateByQuery
 import json
 import urllib.request
 
-es = Elasticsearch()
+es = Elasticsearch('http://elasticsearch:9200')
 
 #-----Define editing functions------#
 def create_index(index: str):
@@ -43,20 +43,20 @@ def content_list_GET_call(url):
     return data
 
 #-----Testing Database-----#
-with open('database.json') as json_file:
-    database = json.load(json_file)
+# with open('database.json') as json_file:
+#     database = json.load(json_file)
 
-# Convert string to dict    
-database = json.loads(database)
+# # Convert string to dict    
+# database = json.loads(database)
 
-for key, values in database.items():
-    create_index(key)
-    for item in values:
-        create_doc(key, item['uid'], item)
+# for key, values in database.items():
+#     create_index(key)
+#     for item in values:
+#         create_doc(key, item['uid'], item)
 
 #-----Content Registry-----#
 keys = ["name", "version", "type", "uri", "application", "reference", "description", "content_type", "content_id", "owner"]
-url_head = 'http://localhost:8000/api/v0/'
+url_head = 'http://content-api:8000/api/v0/'
 catagory = ['models', 'apps', 'workflows']
 
 for item in catagory:

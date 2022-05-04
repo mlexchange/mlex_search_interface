@@ -20,10 +20,11 @@ cd mlex_search_api
 docker-compose up --build
 ```
 
-4. Wait until the process finish, you should see 5 containers under the 'mlex_search_api' container:
+4. Wait until the process finish, you should see 6 containers under the 'mlex_search_api' container:
 
 - Dash-Fronty (frontend)
 - FastAPI (backend)
+- Mining (data ingestion, this container will exit upon succesful execution)
 - mlex_search_api_elasticsearch_1 (search engine)
 - mlex_search_api_kibana_1 (visualization tool for elasticsearch cluster)
 - mlex_search_api_setup_1 (security setup for elasticsearch engine)

@@ -56,7 +56,7 @@ params = ["name", "version", "type", "uri", "reference", "description", "content
 text_search_card = dbc.Card(
     id = "text-search-card",
     children = [
-        dbc.Row(html.H2("Text")),
+        html.H2("Text"),
         html.Hr(),
         dbc.Label("Type in Keyword Here: "),
         dbc.Row([
@@ -106,7 +106,7 @@ image_search_card = dbc.Card(
                 ),
             dbc.Col(
                 dcc.Dropdown(
-                    ['Inception_resnet', 'VGG16', 'Nasnet', 'Inception_v4'],
+                    ['Inception_resnet', 'VGG16', 'Nasnet'],
                     id = 'cnn',
                     placeholder = "Select CNN",
                     )
@@ -173,6 +173,71 @@ def parse_contents(contents, filename, date):
         html.Hr(),
     ])
 
+job_status_display = [
+    html.Div(
+        children=[
+            dash_table.DataTable(
+                id='job_table',
+                columns=[
+                    {'name': 'Job ID', 'id': 'job_id'},
+                    {'name': 'Type', 'id': 'job_type'},
+                    {'name': 'Status', 'id': 'status'},
+                    {'name': 'Dataset', 'id': 'dataset'},
+                    {'name': 'Image length', 'id': 'image_length'},
+                    {'name': 'Model', 'id': 'model_name'},
+                    {'name': 'Parameters', 'id': 'parameters'},
+                    {'name': 'Experiment ID', 'id': 'experiment_id'},
+                    {'name': 'Logs', 'id': 'job_logs'}
+                ],
+                data = [],
+                hidden_columns = ['job_id', 'image_length', 'experiment_id', 'job_logs'],
+                row_selectable='single',
+                style_cell={'padding': '1rem', 'textAlign': 'left'}, #, 'maxWidth': '7rem', 'whiteSpace': 'normal'},
+                fixed_rows={'headers': True},
+                css=[{"selector": ".show-hide", "rule": "display: none"}],
+                style_data_conditional=[
+                    {'if': {'column_id': 'status', 'filter_query': '{status} = completed'},
+                     'backgroundColor': 'green',
+                     'color': 'white'},
+                    {'if': {'column_id': 'status', 'filter_query': '{status} = failed'},
+                     'backgroundColor': 'red',
+                     'color': 'white'}
+                ],
+                style_table={'height':'18rem', 'overflowY': 'auto'}
+            )
+        ]
+    )
+]
+
+job_display = dbc.Card(
+    id = "job-display",
+    children = [
+        dbc.Row([
+            dbc.Col(
+                dbc.Card(
+                    children = [
+                        dbc.CardHeader("List of Jobs"),
+                        dbc.CardBody(job_status_display)
+                    ],
+                ),
+                width = True),
+            dbc.Col(
+                dbc.Card(
+                    children = [
+                        dbc.CardHeader("Job Logs"),
+                        dbc.CardBody(
+                            dcc.Textarea(id='job-logs',
+                                 value='Placeholder for job logs',
+                                 style={'width': '100%', 'height': '10rem'})
+                        )
+                    ],
+                ),
+                width = 3),    
+        ],
+        justify = "end"
+        ),
+    ]
+)
 
 app.layout = html.Div([
     header,
@@ -180,6 +245,7 @@ app.layout = html.Div([
         dbc.Row([html.H1("What do you want to search?")]),
         dbc.Row((text_search_card)),
         dbc.Row((image_search_card)),
+        dbc.Row((job_display)),
     ]),
 ])
 

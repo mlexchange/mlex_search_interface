@@ -270,8 +270,6 @@ def text_search(n_clicks, input):
             if i == 0:
                 keys.append({'id': key, 'name': key})
         i += 1    
-
-
         infos.append(info_dict)
     return infos,keys
 

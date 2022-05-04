@@ -50,8 +50,7 @@ header= dbc.Navbar(
     sticky="top",
 )
 
-#params = ['name', 'affliation', 'role', 'uid']
-params = ["name", "version", "type", "uri", "reference", "description", "content_type", "content_id", "owner"]
+content_meta = ["name", "version", "type", "uri", "reference", "description", "content_type", "content_id", "owner"]
 
 text_search_card = dbc.Card(
     id = "text-search-card",
@@ -82,7 +81,7 @@ text_search_card = dbc.Card(
         html.Br(),        
         dash_table.DataTable(
             id = 'text-output',
-            columns = ([{'id': p, 'name': p} for p in params]),
+            columns = ([{'id': param, 'name': param} for param in content_meta]),
             row_selectable = 'multi',
             editable = False,
             style_cell = {'padding': '0.5rem', 'textAlign': 'left'},
@@ -220,22 +219,20 @@ job_display = dbc.Card(
                         dbc.CardBody(job_status_display)
                     ],
                 ),
-                width = True),
+                width = 9),
             dbc.Col(
                 dbc.Card(
                     children = [
                         dbc.CardHeader("Job Logs"),
                         dbc.CardBody(
                             dcc.Textarea(id='job-logs',
-                                 value='Placeholder for job logs',
+                                 value='',
                                  style={'width': '100%', 'height': '10rem'})
                         )
                     ],
                 ),
                 width = 3),    
-        ],
-        justify = "end"
-        ),
+        ])
     ]
 )
 
@@ -297,9 +294,6 @@ def display_image(list_of_contents, list_of_names, list_of_dates):
 def image_search(n_clicks, label, cnn, smtd, noi):
     selection = [label, cnn, smtd, noi]
     return f'Chosen parameters: {selection}'
-
-
-
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ The Search API provides text and image searching tools for MLExchange platform. 
 
 Current version of the Search API has been dockerized. To use:
 
-1. Install Docker and Docker Desktop(https://www.docker.com/products/docker-desktop/) 
+1. Install Docker and [[Docker Desktop]](https://www.docker.com/products/docker-desktop/) 
 
 2. Navigate to the root directory of this repo
 

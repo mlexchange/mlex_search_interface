@@ -237,7 +237,7 @@ job_display = dbc.Card(
 )
 
 app.layout = html.Div([
-    header,
+    # header,
     dbc.Container([
         dbc.Row([html.H1("What do you want to search?")]),
         dbc.Row((text_search_card)),

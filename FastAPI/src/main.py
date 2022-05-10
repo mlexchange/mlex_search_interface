@@ -5,10 +5,11 @@ from pydantic import BaseModel
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Index, Document, UpdateByQuery
 from datetime import datetime
-import json
+from ssl import create_default_context
 
 
-es = Elasticsearch('http://elasticsearch:9200')
+es = Elasticsearch('https://es01:9200',
+                    basic_auth=('elastic','elastic'))
 
 app = FastAPI()
 

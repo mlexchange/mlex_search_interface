@@ -3,7 +3,8 @@ from elasticsearch_dsl import Search, Index, Document, UpdateByQuery
 import json
 import urllib.request
 
-es = Elasticsearch('http://elasticsearch:9200')
+es = Elasticsearch('https://es01:9200',
+                    basic_auth=('elastic','elastic'))
 
 #-----Define editing functions------#
 def create_index(index: str):

@@ -1,43 +1,6 @@
 version: '3'
 
 services:
-#-----App-----#
-  #-----Backend-----#
-  fastapi:
-    restart: "unless-stopped"
-    container_name: "FastAPI"
-    build:
-      context: "FastAPI/"
-      dockerfile: "docker/Dockerfile"
-    volumes:
-      - ./FastAPI/src:/app/fastapi/src
-    networks:
-      - searchapi-network
-    expose:
-      - "8060"
-    ports:
-      - "8060:8060"
-    depends_on:
-      - es01
-  
-  #-----Frontend-----#    
-  dash-fronty:
-    restart: "unless-stopped"
-    container_name: "Dash-Fronty"
-    build:
-      context: "Dash-Fronty/"
-      dockerfile: "docker/Dockerfile"
-    volumes:
-      - ./Dash-Fronty/src:/app/dash-fronty/src
-    networks:
-      - searchapi-network
-    expose:
-      - "8061"
-    ports:
-      - "8061:8061"
-    depends_on:
-      - fastapi
-
 #-----Elastic stack-----#  
   setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
@@ -265,7 +228,32 @@ services:
       timeout: 10s
       retries: 120
 
-  #-----Mining-----#
+#-----App-----#
+  #-----Backend-----#
+  fastapi:
+    depends_on:
+      es01:
+        condition: service_healthy
+      es02:
+        condition: service_healthy
+      es03:
+        condition: service_healthy
+    restart: "unless-stopped"
+    container_name: "FastAPI"
+    build:
+      context: "FastAPI/"
+      dockerfile: "docker/Dockerfile"
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+      - ./FastAPI/src:/app/fastapi/src
+    networks:
+      - searchapi-network
+    expose:
+      - "8060"
+    ports:
+      - "8060:8060"
+
+#-----Mining-----#
   mining:
     depends_on:
       es01:
@@ -279,10 +267,30 @@ services:
       context: "Mining/"
       dockerfile: "docker/Dockerfile"
     volumes:
+      - certs:/usr/share/elasticsearch/config/certs
       - ./Mining/src:/app/mining/src
     networks:
       - searchapi-network
       - content_regist_content_registry_network
+
+  #-----Frontend-----#    
+  dash-fronty:
+    depends_on:
+      - fastapi
+    restart: "unless-stopped"
+    container_name: "Dash-Fronty"
+    build:
+      context: "Dash-Fronty/"
+      dockerfile: "docker/Dockerfile"
+    volumes:
+      - ./Dash-Fronty/src:/app/dash-fronty/src
+    networks:
+      - searchapi-network
+      - computing_api_default
+    expose:
+      - "8061"
+    ports:
+      - "8061:8061"
 
 volumes:
   certs:
@@ -299,5 +307,7 @@ volumes:
 networks:
   searchapi-network:
     driver: bridge
+  computing_api_default:
+    external: true
   content_regist_content_registry_network:
     external: true

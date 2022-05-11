@@ -98,28 +98,51 @@ image_search_card = dbc.Card(
         dbc.Row([
             dbc.Col(
                 dcc.Dropdown(
-                    ['Cells', 'Fibers', 'GISAXS'],
+                    options = [
+                            {'label': 'Cells', 'value': 'cells'},
+                            {'label': 'Fibers', 'value': 'fibers'},
+                            {'label': 'GISAXS', 'value': 'gisaxs'},
+                            ],
                     id = 'label',
                     placeholder = "Select Category",
                     )
                 ),
             dbc.Col(
                 dcc.Dropdown(
-                    ['Inception_resnet', 'VGG16', 'Nasnet'],
+                    options = [
+                            {'label': 'Inception_resnet', 'value': 'pretrained_inception_resnet'},
+                            {'label': 'VGG16', 'value': 'pretrained_vgg16'},
+                            {'label': 'Nasnet', 'value': 'pretrained_nasnet'},
+                            ],
                     id = 'cnn',
                     placeholder = "Select CNN",
                     )
                 ),
             dbc.Col(
                 dcc.Dropdown(
-                    ['Brute Force (bf)', 'KDTree (kd)', 'BallTree (bt)'],
+                    options = [
+                            {'label': 'Brute Force', 'value': 'bf'},
+                            {'label': 'KDTree', 'value': 'kd'},
+                            {'label': 'BallTree', 'value': 'bt'},
+                            ],
                     id = 'searching-method',
                     placeholder = "Select Searching Method",
                     )
                 ),
             dbc.Col(
                 dcc.Dropdown(
-                    [num for num in range(1, 11)],
+                    options = [
+                            {'label': '1', 'value': 1},
+                            {'label': '2', 'value': 2},
+                            {'label': '3', 'value': 3},
+                            {'label': '4', 'value': 4},
+                            {'label': '5', 'value': 5},
+                            {'label': '6', 'value': 6},
+                            {'label': '7', 'value': 7},
+                            {'label': '8', 'value': 8},
+                            {'label': '9', 'value': 9},
+                            {'label': '10', 'value': 10},
+                            ],
                     id = 'number-of-images',
                     placeholder = "Select Result Image Number",
                     )
@@ -289,12 +312,57 @@ def display_image(list_of_contents, list_of_names, list_of_dates):
     State('label', 'value'),
     State('cnn', 'value'),
     State('searching-method', 'value'),
-    State('number-of-images', 'value')
+    State('number-of-images', 'value'),
+    prevent_intial_call=True
 )
-def image_search(n_clicks, label, cnn, smtd, noi):
-    selection = [label, cnn, smtd, noi]
-    return f'Chosen parameters: {selection}'
+def image_search(n_clicks, label, cnn, searching_method, number_of_images):
+    # selection = [label, cnn, smtd, noi]
+    # return f'Chosen parameters: {selection}'
+    paras = {
+        "feature_extraction_method": cnn, 
+        "searching_method": searching_method, 
+        "number_of_images": number_of_images
+        }
 
+    job_request = {'user_uid': '001',
+                'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
+                'requirements': {'num_processors': 2,
+                                'num_gpus': 0,
+                                'num_nodes': 1},
+                'job_list': [{'mlex_app': 'mlex_search',
+                             'service_type': 'backend',
+                             'working_directory': '/Users/tibbers/MLExchange/mlex_PyCBIR',
+                             'job_kwargs': {'uri': 'mlexchange/pycbir', 
+                                            'cmd': 'python3 src/model.py data/fibers/database/ data/fibers/query/ data/fibers/output/ ' + '\'' + json.dumps(paras) + '\''
+                                            }
+                            }],
+                'dependencies': {'0': []}
+                }
+
+    resp = requests.post('http://job-service:8080/api/v0/workflows', json=job_request)
+
+    print(resp.status_code)
+    return resp.status_code
+
+# @app.callback(
+#     Output(),
+#     Input(),
+#     State()
+# )
+# def status_check():
+#     # check the status of the job and show in the list
+#     resp = requests.get('http://job-service:8080/api/v0/workflows', params={'state':'running', 'user': '001'}).json()
+#     return 
+
+# @app.callback(
+#     Output(),
+#     Input(),
+#     State()
+# )
+# def display_result():
+#     # Select requests from the list, display png to the fronty
+#     return
+    
 
 if __name__ == '__main__':
     app.run_server(host = '0.0.0.0', port = 8061, debug=True)

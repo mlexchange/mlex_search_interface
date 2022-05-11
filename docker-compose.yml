@@ -31,6 +31,7 @@ services:
       - ./Dash-Fronty/src:/app/dash-fronty/src
     networks:
       - searchapi-network
+      - computing_api_default
     expose:
       - "8061"
     ports:
@@ -163,4 +164,6 @@ networks:
   searchapi-network:
     driver: bridge
   content_regist_content_registry_network:
+    external: true
+  computing_api_default:
     external: true

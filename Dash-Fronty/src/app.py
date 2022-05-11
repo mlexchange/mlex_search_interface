@@ -266,7 +266,7 @@ app.layout = html.Div([
         dbc.Row((text_search_card)),
         dbc.Row((image_search_card)),
         dbc.Row((job_display)),
-    ]),
+        ]),
 ])
 
 #-----------Callback---------------#
@@ -313,36 +313,42 @@ def display_image(list_of_contents, list_of_names, list_of_dates):
     State('cnn', 'value'),
     State('searching-method', 'value'),
     State('number-of-images', 'value'),
-    prevent_intial_call=True
+    prevent_intial_call = True
 )
 def image_search(n_clicks, label, cnn, searching_method, number_of_images):
-    # selection = [label, cnn, smtd, noi]
-    # return f'Chosen parameters: {selection}'
+    selection = [label, cnn, searching_method, number_of_images]
+    # return 
     paras = {
         "feature_extraction_method": cnn, 
         "searching_method": searching_method, 
         "number_of_images": number_of_images
         }
 
-    job_request = {'user_uid': '001',
-                'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
-                'requirements': {'num_processors': 2,
-                                'num_gpus': 0,
-                                'num_nodes': 1},
-                'job_list': [{'mlex_app': 'mlex_search',
-                             'service_type': 'backend',
-                             'working_directory': '/Users/tibbers/MLExchange/mlex_PyCBIR',
-                             'job_kwargs': {'uri': 'mlexchange/pycbir', 
-                                            'cmd': 'python3 src/model.py data/fibers/database/ data/fibers/query/ data/fibers/output/ ' + '\'' + json.dumps(paras) + '\''
-                                            }
-                            }],
-                'dependencies': {'0': []}
+    job_request = {
+        'user_uid': '001',
+        'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
+        'requirements': {
+            'num_processors': 2,
+            'num_gpus': 0,
+            'num_nodes': 1
+            },
+        'job_list': [{
+            'mlex_app': 'mlex_search',
+            'service_type': 'backend',
+            # 'working_directory': '/Users/tibbers/MLExchange/mlex_PyCBIR',
+            'working_directory': '/Users/tibbers/mlexchange/mlex_pyCBIR',
+            'job_kwargs': {
+                'uri': 'mlexchange/pycbir', 
+                'cmd': 'python3 src/model.py data/fibers/database/ data/fibers/query/ data/fibers/output/ ' + '\'' + json.dumps(paras) + '\''
                 }
+            }],
+            'dependencies': {'0': []}
+        }
 
-    resp = requests.post('http://job-service:8080/api/v0/workflows', json=job_request)
+    resp = requests.post('http://job-service:8080/api/v0/workflows', json = job_request)
 
     print(resp.status_code)
-    return resp.status_code
+    return f'Chosen parameters: {selection}; Status code: {resp.status_code}'
 
 # @app.callback(
 #     Output(),

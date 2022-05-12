@@ -7,9 +7,10 @@ from elasticsearch_dsl import Search, Index, Document, UpdateByQuery
 from datetime import datetime
 from ssl import create_default_context
 
-
+cert = create_default_context(cafile = '/app/fastapi/src/certs/ca/ca.crt')
 es = Elasticsearch('https://es01:9200',
-                    basic_auth=('elastic','elastic'))
+                    basic_auth=('elastic','elastic'),
+                    ssl_context=cert)
 
 app = FastAPI()
 
@@ -53,12 +54,13 @@ def create_index(index: str):
     except Exception as e:
         return f'Index: \"{index}\" already exists, please check.'
 
-@app.post('/create-doc/{index}/{doc}')
-def create_doc(index: str, doc: str, description = 'Warning, this needs to be redesigned, do not use atm'):
+@app.post('/create-doc/{index}/{id}')
+def create_doc(index: str, id: str, doc: dict, description = 'Warning, this needs to be redesigned, do not use atm'):
     '''
     Check if the doc exists within the given index, then add/update doc to the index.
     This needs to be redesigned. Do not use
     '''
+    
     check_index = Index(index).exists(using = es)
     if not check_index:
         return f'Index: \"{index}\" does not exist, please check.'

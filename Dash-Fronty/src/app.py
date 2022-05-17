@@ -2,9 +2,15 @@ from dash import Dash, dcc, html
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 from dash import dash_table
+from dash.exceptions import PreventUpdate
+import imageio
+import numpy as np
+import plotly.express as px
 import requests
 import json
 import datetime
+import os
+
 
 
 #------------App Setup------------#
@@ -12,7 +18,9 @@ external_stylesheets = [dbc.themes.BOOTSTRAP, "assets/segmentation-style.css"]
 
 app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
 
-
+#------------Global Variable-------------#
+USER = 'Dummy-Searcher' 
+DATA_DIR = str(os.environ['DATA_DIR'])
 #-----------Layout----------------#
 header= dbc.Navbar(
     dbc.Container(
@@ -103,7 +111,7 @@ image_search_card = dbc.Card(
                             {'label': 'Fibers', 'value': 'fibers'},
                             {'label': 'GISAXS', 'value': 'gisaxs'},
                             ],
-                    id = 'label',
+                    id = 'dataset',
                     placeholder = "Select Category",
                     )
                 ),
@@ -179,8 +187,8 @@ image_search_card = dbc.Card(
                     'margin': '25px'},
         # Allow multiple files to be uploaded
                 multiple = True),
-        html.Div(id = 'output-image-upload'),
         ]),
+        html.Div(dcc.Graph(id='image-search-results',)),
         html.Div(id = 'selection')
 ])
 
@@ -195,30 +203,50 @@ def parse_contents(contents, filename, date):
         html.Hr(),
     ])
 
+def parse_images(img):
+    # Convert the image string to numpy array and create a
+    # Plotly figure, see https://plotly.com/python/imshow/
+    fig = px.imshow(img)
+
+    # Hide the axes and the tooltips
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(t=20, b=0, l=0, r=0),
+        xaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            linewidth=0
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            linewidth=0
+        ),
+        hovermode=False
+    )
+    return fig
+
 job_status_display = [
     html.Div(
         children=[
             dash_table.DataTable(
-                id='job_table',
+                id='job-table',
                 columns=[
                     {'name': 'Job ID', 'id': 'job_id'},
-                    {'name': 'Type', 'id': 'job_type'},
                     {'name': 'Status', 'id': 'status'},
-                    {'name': 'Dataset', 'id': 'dataset'},
-                    {'name': 'Image length', 'id': 'image_length'},
-                    {'name': 'Model', 'id': 'model_name'},
-                    {'name': 'Parameters', 'id': 'parameters'},
-                    {'name': 'Experiment ID', 'id': 'experiment_id'},
-                    {'name': 'Logs', 'id': 'job_logs'}
+                    {'name': 'Submission Time', 'id': 'submission_time'},
+                    {'name': 'Execution Time', 'id': 'execution_time'},
+                    {'name': 'End Time', 'id': 'end_time'},
+                    # {'name': 'Logs', 'id': 'job_logs'}
                 ],
                 data = [],
-                hidden_columns = ['job_id', 'image_length', 'experiment_id', 'job_logs'],
                 row_selectable='single',
-                style_cell={'padding': '1rem', 'textAlign': 'left'}, #, 'maxWidth': '7rem', 'whiteSpace': 'normal'},
+                style_cell={'padding': '1rem', 'textAlign': 'left'},
                 fixed_rows={'headers': True},
                 css=[{"selector": ".show-hide", "rule": "display: none"}],
                 style_data_conditional=[
-                    {'if': {'column_id': 'status', 'filter_query': '{status} = completed'},
+                    {'if': {'column_id': 'status', 'filter_query': '{status} = complete'},
                      'backgroundColor': 'green',
                      'color': 'white'},
                     {'if': {'column_id': 'status', 'filter_query': '{status} = failed'},
@@ -226,10 +254,15 @@ job_status_display = [
                      'color': 'white'}
                 ],
                 style_table={'height':'18rem', 'overflowY': 'auto'}
-            )
-        ]
-    )
-]
+            ),
+            dcc.Interval(
+                id='job-refresher',
+                interval=1*2000, # milliseconds
+                n_intervals=0,
+                ),
+            ]
+        )
+    ]
 
 job_display = dbc.Card(
     id = "job-display",
@@ -260,7 +293,7 @@ job_display = dbc.Card(
 )
 
 app.layout = html.Div([
-    # header,
+    header,
     dbc.Container([
         dbc.Row([html.H1("What do you want to search?")]),
         dbc.Row((text_search_card)),
@@ -309,66 +342,101 @@ def display_image(list_of_contents, list_of_names, list_of_dates):
 @app.callback(
     Output('selection', 'children'),
     Input('image-search-button', 'n_clicks'),
-    State('label', 'value'),
+    State('dataset', 'value'),
     State('cnn', 'value'),
     State('searching-method', 'value'),
     State('number-of-images', 'value'),
     prevent_intial_call = True
 )
-def image_search(n_clicks, label, cnn, searching_method, number_of_images):
-    selection = [label, cnn, searching_method, number_of_images]
-    # return 
-    paras = {
-        "feature_extraction_method": cnn, 
-        "searching_method": searching_method, 
-        "number_of_images": number_of_images
-        }
-
-    job_request = {
-        'user_uid': '001',
-        'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
-        'requirements': {
-            'num_processors': 2,
-            'num_gpus': 0,
-            'num_nodes': 1
-            },
-        'job_list': [{
-            'mlex_app': 'mlex_search',
-            'service_type': 'backend',
-            # 'working_directory': '/Users/tibbers/MLExchange/mlex_PyCBIR',
-            'working_directory': '/Users/tibbers/mlexchange/mlex_pyCBIR',
-            'job_kwargs': {
-                'uri': 'mlexchange/pycbir', 
-                'cmd': 'python3 src/model.py data/fibers/database/ data/fibers/query/ data/fibers/output/ ' + '\'' + json.dumps(paras) + '\''
-                }
-            }],
-            'dependencies': {'0': []}
-        }
-
-    resp = requests.post('http://job-service:8080/api/v0/workflows', json = job_request)
-
-    print(resp.status_code)
-    return f'Chosen parameters: {selection}; Status code: {resp.status_code}'
-
-# @app.callback(
-#     Output(),
-#     Input(),
-#     State()
-# )
-# def status_check():
-#     # check the status of the job and show in the list
-#     resp = requests.get('http://job-service:8080/api/v0/workflows', params={'state':'running', 'user': '001'}).json()
-#     return 
-
-# @app.callback(
-#     Output(),
-#     Input(),
-#     State()
-# )
-# def display_result():
-#     # Select requests from the list, display png to the fronty
-#     return
+def image_search(n_clicks, dataset, cnn, searching_method, number_of_images):
     
+    if n_clicks > 0:
+        selection = [dataset, cnn, searching_method, number_of_images]
+
+        paras = {
+            "feature_extraction_method": cnn, 
+            "searching_method": searching_method, 
+            "number_of_images": number_of_images
+            }
+
+        job_request = {
+            'user_uid': USER,
+            'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
+            'requirements': {
+                'num_processors': 2,
+                'num_gpus': 0,
+                'num_nodes': 1
+                },
+            'job_list': [{
+                'mlex_app': 'mlex_search',
+                'service_type': 'backend',
+                'working_directory': DATA_DIR,
+                # 'working_directory': '/Users/tibbers/MLExchange/mlex_pyCBIR/data',
+                # 'working_directory': '/Users/tibbers/mlexchange/mlex_pyCBIR/data',
+                'job_kwargs': {
+                    'uri': 'mlexchange/pycbir', 
+                    'cmd': f'python3 src/model.py data/{dataset}/database/ data/{dataset}/query/ data/{dataset}/output/ ' + '\'' + json.dumps(paras) + '\'',
+                    # 'cmd': 'sleep 600',
+                    # 'kwargs': {'parameters': ParaPlaceholder}
+                    }
+                }],
+                'dependencies': {'0': []}
+            }
+
+        resp = requests.post('http://job-service:8080/api/v0/workflows', json = job_request)
+
+        return f'Chosen parameters: {selection}; Status code: {resp.status_code}'
+
+@app.callback(
+    Output('job-table', 'data'),
+    Input('job-refresher', 'n_intervals'),
+)
+def status_check(n):
+    url = f'http://job-service:8080/api/v0/jobs?&user={USER}&mlex_app=mlex_search'
+    # check the status of the job and show in the list
+    list_of_jobs = requests.get(url).json()
+    data_table = []
+    for job in list_of_jobs:
+        data_table.insert(0, dict(job_id=job['uid'],
+                                  submission_time = job['timestamps']['submission_time'],
+                                  execution_time = job['timestamps']['execution_time'],
+                                  end_time = job['timestamps']['end_time'],
+                                  status=job['status']['state'],
+                                  job_logs=job['logs'])
+        )
+    return data_table
+
+@app.callback(
+    Output('job-logs', 'value'),
+    Input('job-table', 'selected_rows'),
+    State('job-table', 'data'),
+)
+def log_display(row, data):
+    log = ''
+    if row:
+        log = data[row[0]]['job_logs']
+    return log
+
+@app.callback(
+    Output('image-search-results', 'figure'),
+    Input('job-table', 'selected_rows'),
+    State('job-table', 'data'),
+    State('dataset', 'value'),
+    State('cnn', 'value'),
+    State('searching-method', 'value'),
+    State('number-of-images', 'value'),
+    prevent_intial_call = True
+)
+def image_display(row, data, dataset, cnn, searching_method, number_of_images):
+    if not row:
+        raise PreventUpdate
+
+    else:
+        img_path = f'../../data/{dataset}/output/result_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
+        img = np.array(imageio.imread(img_path))
+        img = parse_images(img)
+
+        return img
 
 if __name__ == '__main__':
     app.run_server(host = '0.0.0.0', port = 8061, debug=True)

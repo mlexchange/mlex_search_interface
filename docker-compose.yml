@@ -1,6 +1,6 @@
-version: '3'
-
+version: "3.8"
 services:
+
 #-----Elastic stack-----#  
   setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
@@ -252,7 +252,7 @@ services:
       - "8060"
     ports:
       - "8060:8060"
-
+      
 #-----Mining-----#
   mining:
     depends_on:
@@ -282,8 +282,11 @@ services:
     build:
       context: "Dash-Fronty/"
       dockerfile: "docker/Dockerfile"
+    environment:
+      DATA_DIR: "${PWD}/Data/"
     volumes:
       - ./Dash-Fronty/src:/app/dash-fronty/src
+      - ./Data:/app/data
     networks:
       - searchapi-network
       - computing_api_default
@@ -310,4 +313,6 @@ networks:
   computing_api_default:
     external: true
   content_regist_content_registry_network:
+    external: true
+  computing_api_default:
     external: true

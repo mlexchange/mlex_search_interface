@@ -2,4 +2,6 @@
 *pycache*
 *ipynb_checkpoints*
 *.cache*
+*certs*
 Data
+

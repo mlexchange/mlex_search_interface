@@ -27,8 +27,11 @@ services:
     build:
       context: "Dash-Fronty/"
       dockerfile: "docker/Dockerfile"
+    environment:
+      DATA_DIR: "${PWD}/Data/"
     volumes:
       - ./Dash-Fronty/src:/app/dash-fronty/src
+      - ./Data:/app/data
     networks:
       - searchapi-network
       - computing_api_default

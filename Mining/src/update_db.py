@@ -1,10 +1,13 @@
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search, Index, Document, UpdateByQuery
+from elasticsearch_dsl import Search, Index, Document
 import json
 import urllib.request
+from ssl import create_default_context
 
+cert = create_default_context(cafile = '/app/mining/src/certs/ca/ca.crt')
 es = Elasticsearch('https://es01:9200',
-                    basic_auth=('elastic','elastic'))
+                    http_auth=('elastic','elastic'),
+                    ssl_context=cert)
 
 #-----Define editing functions------#
 def create_index(index: str):

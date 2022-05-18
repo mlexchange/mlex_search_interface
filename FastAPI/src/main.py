@@ -1,15 +1,11 @@
-from logging import RootLogger
-from fastapi import FastAPI, Path, Query, HTTPException, status
-from typing import Optional
-from pydantic import BaseModel
+from fastapi import FastAPI
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search, Index, Document, UpdateByQuery
-from datetime import datetime
+from elasticsearch_dsl import Search, Index, Document
 from ssl import create_default_context
 
 cert = create_default_context(cafile = '/app/fastapi/src/certs/ca/ca.crt')
 es = Elasticsearch('https://es01:9200',
-                    basic_auth=('elastic','elastic'),
+                    http_auth=('elastic','elastic'),
                     ssl_context=cert)
 
 app = FastAPI()

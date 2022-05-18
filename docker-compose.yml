@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3"
 services:
 
 #-----Elastic stack-----#  
@@ -244,7 +244,7 @@ services:
       context: "FastAPI/"
       dockerfile: "docker/Dockerfile"
     volumes:
-      - certs:/usr/share/elasticsearch/config/certs
+      - certs:/app/fastapi/src/certs
       - ./FastAPI/src:/app/fastapi/src
     networks:
       - searchapi-network
@@ -263,11 +263,12 @@ services:
       es03:
         condition: service_healthy
     container_name: "Mining"
+    restart: "on-failure"
     build:
       context: "Mining/"
       dockerfile: "docker/Dockerfile"
     volumes:
-      - certs:/usr/share/elasticsearch/config/certs
+      - certs:/app/mining/src/certs
       - ./Mining/src:/app/mining/src
     networks:
       - searchapi-network
@@ -313,6 +314,4 @@ networks:
   computing_api_default:
     external: true
   content_regist_content_registry_network:
-    external: true
-  computing_api_default:
     external: true

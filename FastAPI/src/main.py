@@ -1,14 +1,36 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Index, Document
 from ssl import create_default_context
 
+#----------Elastic Authentication----------#
 cert = create_default_context(cafile = '/app/fastapi/src/certs/ca/ca.crt')
 es = Elasticsearch('https://es01:9200',
                     http_auth=('elastic','elastic'),
                     ssl_context=cert)
 
-app = FastAPI()
+#----------Global Varibles----------#
+API_URL_PREFIX = '/search_api'
+
+#----------Classes----------#
+class NewIndex(BaseModel):
+    index: str
+
+class NewDocument(BaseModel):
+    name: str
+    version: str
+    type: str
+    uri: str
+    application: str
+    reference: str
+    description: str
+    content_type: str
+    content_id: str
+    owner: str
+
+#----------Fast API Setup----------#
+app = FastAPI(docs_url = "/search_api/docs")
 
 # Core HTTP Methods:
 # GET : ask app to get something and return it to you
@@ -16,45 +38,49 @@ app = FastAPI()
 # PUT: update something already in the database
 # DELETE: get rid of the information
 
-# class Item(BaseModel):
-#     name: str
-#     affiliation: str
-#     role: str
-#     uid: str
-#     #brand: Optional[str] = None
-
-# class UpdateItem(BaseModel):
-#     name: str
-#     affiliation: Optional[str] = None
-#     role: str
-#     uid: Optional[str] = None
-
-@app.get('/search/{keyword}')
-def search(keyword: str, description = 'Search keyword within database'):
+#----------GET----------#
+@app.get(API_URL_PREFIX + '/search/document/', tags = ['Keyword'])
+def search(keyword: str) -> list: 
     '''
-    Search the doc information based on input name.
-    To do: add sort for ordered display
+    Search the keyword within documents stored in elastic.
+
+    Args:
+        keyword: the keyword used to put into a search query
+    Return:
+        list of documents matching the search query, with order associated with ranking score.
+
     '''
     resp = Search().using(es).query("multi_match", query = keyword, fuzziness = "AUTO").extra(track_total_hits = True).execute()
-    return 'Total %d hits found: ' % resp.hits.total.value, [info for info in resp]
+    return list(resp)
 
-@app.post('/create-index/{index}')
-def create_index(index: str):
+#----------POST----------#
+@app.post(API_URL_PREFIX + '/index/', tags = ['Index'])
+def create_index(req: NewIndex):
     '''
-    Check if the index exists, if not, add the given index
+    Create a new index for elasticsearch.
+
+    Args:
+        req: the name of index waiting for creation.
+
+    Return:
+
     '''
     try:
-        resp = Index(index).create(using = es)
-        return [f'Index: \"{index}\" has been successfully created!', resp]
+        resp = Index(req.index).create(using = es)
+        return [f'Index: \"{req.index}\" has been successfully created!', resp]
 
     except Exception as e:
-        return f'Index: \"{index}\" already exists, please check.'
+        return f'Index: \"{req.index}\" already exists, please check.'
 
-@app.post('/create-doc/{index}/{id}')
-def create_doc(index: str, id: str, doc: dict, description = 'Warning, this needs to be redesigned, do not use atm'):
+@app.post(API_URL_PREFIX + '/index/document', tags = ['Document'])
+def index_doc(index: str, doc_id: str, doc: dict):
     '''
-    Check if the doc exists within the given index, then add/update doc to the index.
-    This needs to be redesigned. Do not use
+    Insert a document to the index.
+
+    Args:
+
+    Return:
+
     '''
     
     check_index = Index(index).exists(using = es)
@@ -69,36 +95,53 @@ def create_doc(index: str, id: str, doc: dict, description = 'Warning, this need
             es.index(index = index, id = doc['uid'], document = doc)
             return f'New document has been successfully inserted in \"{index}\".'
 
-@app.delete('/delete-doc/{index}/{keyword}')
-def delete_doc(index: str, keyword: str):
-    '''
-    Delete document within specified index
-    '''
-    resp = Search().using(es).index(index).query('match', name = keyword).delete()
-    return 'Document has been deleted.'
+#----------PUT----------#
 
-@app.delete('/delete-index/{index}')
+
+#----------DELETE----------#
+@app.delete(API_URL_PREFIX + '/index/{index}', tags = ['Index'])
 def delete_index(index: str):
     '''
-    Check if the index exists, if not, add the given index
+    Delete an index.
+
+    Args:
+
+    Return:
+
     '''
     try:
         resp = Index(index).delete(using = es)
         return [f'Index: \"{index}\" has been successfully deleted!', resp]
     except Exception as e:
         return f'Index: \"{index}\" does not exist.'
+    
+
+@app.delete(API_URL_PREFIX + '/index/{index}/document/{doc_id}', tags = ['Document'])
+def delete_doc(index: str, doc_id: str):
+    '''
+    Delete the document within the index.
+
+    Args:
+
+    Return:
+
+    '''
+    
+    
 
 
+# class Item(BaseModel):
+#     name: str
+#     affiliation: str
+#     role: str
+#     uid: str
+#     #brand: Optional[str] = None
 
-
-
-
-
-
-
-
-
-
+# class UpdateItem(BaseModel):
+#     name: str
+#     affiliation: Optional[str] = None
+#     role: str
+#     uid: Optional[str] = None
 
 # @app.get('/get-by-name/{item_id}')
 # def get_item(*, item_id: int, name: Optional[str] = None, test: int):

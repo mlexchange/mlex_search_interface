@@ -310,12 +310,12 @@ app.layout = html.Div([
     State('text-input', 'value')
 )
 def text_search(n_clicks, input):
-    url = f'http://fastapi:8060/search/{input}'
+    url = f'http://fastapi:8060/search_api/search/document/?keyword={input}'
     resp = requests.get(url).json()
     infos=[]
     keys =[]
     i = 0
-    for info in resp[1]:
+    for info in resp:
         info_dict = {}
 
         for key, value in info['_d_'].items():

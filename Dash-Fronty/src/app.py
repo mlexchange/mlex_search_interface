@@ -1,7 +1,10 @@
+import dash
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 from dash import dash_table
+import dash_uploader as du
+import dash_daq as daq
 from dash.exceptions import PreventUpdate
 import imageio
 import numpy as np
@@ -10,6 +13,7 @@ import requests
 import json
 import datetime
 import os
+import pathlib
 
 
 
@@ -20,7 +24,14 @@ app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callbac
 
 #------------Global Variable-------------#
 USER = 'Dummy-Searcher' 
-DATA_DIR = str(os.environ['DATA_DIR'])
+
+DOCKER_DATA = pathlib.Path.home() / 'data'
+LOCAL_DATA = str(os.environ['DATA_DIR'])
+DOCKER_HOME = str(DOCKER_DATA) + '/'
+LOCAL_HOME = str(LOCAL_DATA) 
+
+UPLOAD_FOLDER_ROOT = DOCKER_DATA / 'upload'
+du.configure_upload(app, UPLOAD_FOLDER_ROOT, use_upload_id=False)
 #-----------Layout----------------#
 header= dbc.Navbar(
     dbc.Container(
@@ -98,6 +109,171 @@ text_search_card = dbc.Card(
             ),
         ])
 
+file_paths_table = html.Div(
+        children=[
+            dash_table.DataTable(
+                id='files-table',
+                columns=[
+                    {'name': 'type', 'id': 'file_type'},
+                    {'name': 'File Table', 'id': 'file_path'},
+                ],
+                data = [],
+                hidden_columns = ['file_type'],
+                row_selectable='multi',
+                style_cell={'padding': '0.5rem', 'textAlign': 'left'},
+                fixed_rows={'headers': False},
+                css=[{"selector": ".show-hide", "rule": "display: none"}],
+                style_data_conditional=[
+                    {'if': {'filter_query': '{file_type} = dir'},
+                     'color': 'blue'},
+                 ],
+                style_table={'height':'18rem', 'overflowY': 'auto'}
+            )
+        ]
+    )
+
+file_manager = html.Div([
+    dbc.Card([
+        dbc.CardBody(id='data-body',
+                      children=[
+                              
+    du.Upload(
+        id="dash-uploader",
+        max_file_size=1800,  # 1800 Mb
+        cancel_button=True,
+        pause_button=True,
+        # style = {
+        #     'width': '95%',
+        #     'height': '60px',
+        #     'lineHeight': '60px',
+        #     'borderWidth': '1px',
+        #     'borderStyle': 'dashed',
+        #     'borderRadius': '5px',
+        #     'textAlign': 'center',
+        #     'margin': '25px'},
+        ),
+        #     dcc.Upload(
+        #         id = 'upload-image',
+        #         children = html.Div([
+        #             'Drag and Drop or ',
+        #             html.A('Select Files')]),
+        #         style = {
+        #             'width': '95%',
+        #             'height': '60px',
+        #             'lineHeight': '60px',
+        #             'borderWidth': '1px',
+        #             'borderStyle': 'dashed',
+        #             'borderRadius': '5px',
+        #             'textAlign': 'center',
+        #             'margin': '25px'},
+        # # Allow multiple files to be uploaded
+        #         multiple = True),
+    dbc.Label('Choose files/directories:'),
+    html.Div(
+                [dbc.Button("Browse",
+                            id="browse-dir",
+                            className="ms-auto",
+                            color="secondary",
+                            outline=True,
+                            n_clicks=0,
+                            style={'width': '15%', 'margin': '5px'}),
+                html.Div([
+                    dcc.Dropdown(
+                            id='browse-format',
+                            options=[
+                                {'label': 'dir', 'value': 'dir'},
+                                {'label': 'all (*)', 'value': '*'},
+                                {'label': '.png', 'value': '*.png'},
+                                {'label': '.jpg/jpeg', 'value': '*.jpg,*.jpeg'},
+                                {'label': '.tif/tiff', 'value': '*.tif,*.tiff'},
+                                {'label': '.txt', 'value': '*.txt'},
+                                {'label': '.csv', 'value': '*.csv'},
+                            ],
+                            value='*')
+                        ],
+                        style={"width": "15%", 'margin-right': '60px'}
+                ),
+                dbc.Button("Delete the Selected",
+                            id="delete-files",
+                            className="ms-auto",
+                            color="danger",
+                            outline=True,
+                            n_clicks=0,
+                            style={'width': '22%', 'margin-right': '10px'}
+                ),
+                dbc.Modal(
+                    [
+                        dbc.ModalHeader(dbc.ModalTitle("Warning")),
+                        dbc.ModalBody("Files cannot be recovered after deletion. Do you still want to proceed?"),
+                        dbc.ModalFooter([
+                            dbc.Button(
+                                "Delete", id="confirm-delete", color='danger', outline=False, 
+                                className="ms-auto", n_clicks=0
+                            ),
+                        ]),
+                    ],
+                    id="modal",
+                    is_open=False,
+                    style = {'color': 'red'}
+                ), 
+                dbc.Button("Import",
+                            id="import-dir",
+                            className="ms-auto",
+                            color="secondary",
+                            outline=True,
+                            n_clicks=0,
+                            style={'width': '22%', 'margin': '5px'}
+                ),
+                html.Div([
+                    dcc.Dropdown(
+                            id='import-format',
+                            options=[
+                                {'label': 'all files (*)', 'value': '*'},
+                                {'label': '.png', 'value': '*.png'},
+                                {'label': '.jpg/jpeg', 'value': '*.jpg,*.jpeg'},
+                                {'label': '.tif/tiff', 'value': '*.tif,*.tiff'},
+                                {'label': '.txt', 'value': '*.txt'},
+                                {'label': '.csv', 'value': '*.csv'},
+                            ],
+                            value='*')
+                        ],
+                        style={"width": "15%"}
+                ),
+                ],
+            style = {'width': '100%', 'display': 'flex', 'align-items': 'center'},
+        ),
+    html.Div([ html.Div([dbc.Label('Show Local/Docker Path')], style = {'margin-right': '10px'}),
+                daq.ToggleSwitch(
+                    id='my-toggle-switch',
+                    value=False
+                )],
+        style = {'width': '100%', 'display': 'flex', 'align-items': 'center', 'margin': '10px', 'margin-left': '0px'},
+    ),
+    file_paths_table,
+                      ])
+        ])
+
+    ]),
+
+file_explorer = html.Div(
+    [
+        dbc.Button(
+            "Open File Manager",
+            id="collapse-button",
+            size="lg",
+            className="mb-3",
+            color="secondary",
+            outline=True,
+            n_clicks=0,
+        ),
+        dbc.Collapse(
+            file_manager,
+            id="collapse",
+            is_open=False,
+        ),
+    ]
+)
+
 image_search_card = dbc.Card(
     id = "image-search-card",
     children = [
@@ -168,26 +344,9 @@ image_search_card = dbc.Card(
             ], 
             justify = "end"
             ),
-        html.Br(),   
-        html.Div([
-            dbc.Label("Upload Image Here: "),
-            dcc.Upload(
-                id = 'upload-image',
-                children = html.Div([
-                    'Drag and Drop or ',
-                    html.A('Select Files')]),
-                style = {
-                    'width': '95%',
-                    'height': '60px',
-                    'lineHeight': '60px',
-                    'borderWidth': '1px',
-                    'borderStyle': 'dashed',
-                    'borderRadius': '5px',
-                    'textAlign': 'center',
-                    'margin': '25px'},
-        # Allow multiple files to be uploaded
-                multiple = True),
-        ]),
+        html.Br(),
+        dbc.Label("Upload Image Here: "),   
+        file_explorer,
         html.Div(dcc.Graph(id='image-search-results',)),
         html.Div(id = 'selection')
 ])
@@ -226,6 +385,7 @@ def parse_images(img):
         hovermode=False
     )
     return fig
+
 
 job_status_display = [
     html.Div(
@@ -295,10 +455,10 @@ job_display = dbc.Card(
 app.layout = html.Div([
     header,
     dbc.Container([
-        dbc.Row([html.H1("What do you want to search?")]),
-        dbc.Row((text_search_card)),
-        dbc.Row((image_search_card)),
-        dbc.Row((job_display)),
+        dbc.Row(html.H1("What do you want to search?")),
+        dbc.Row(text_search_card),
+        dbc.Row(image_search_card),
+        dbc.Row(job_display),
         ]),
 ])
 
@@ -326,18 +486,18 @@ def text_search(n_clicks, input):
         infos.append(info_dict)
     return infos,keys
 
-@app.callback(
-    Output('output-image-upload', 'children'),
-    Input('upload-image', 'contents'),
-    State('upload-image', 'filename'),
-    State('upload-image', 'last_modified')
-)
-def display_image(list_of_contents, list_of_names, list_of_dates):
-    if list_of_contents is not None:
-        children = [
-            parse_contents(c, n, d) for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
-        return children
+# @app.callback(
+#     Output('output-image-upload', 'children'),
+#     Input('upload-image', 'contents'),
+#     State('upload-image', 'filename'),
+#     State('upload-image', 'last_modified')
+# )
+# def display_image(list_of_contents, list_of_names, list_of_dates):
+#     if list_of_contents is not None:
+#         children = [
+#             parse_contents(c, n, d) for c, n, d in
+#             zip(list_of_contents, list_of_names, list_of_dates)]
+#         return children
 
 @app.callback(
     Output('selection', 'children'),
@@ -370,7 +530,7 @@ def image_search(n_clicks, dataset, cnn, searching_method, number_of_images):
             'job_list': [{
                 'mlex_app': 'mlex_search',
                 'service_type': 'backend',
-                'working_directory': DATA_DIR,
+                'working_directory': LOCAL_DATA,
                 # 'working_directory': '/Users/tibbers/MLExchange/mlex_pyCBIR/data',
                 # 'working_directory': '/Users/tibbers/mlexchange/mlex_pyCBIR/data',
                 'job_kwargs': {
@@ -437,6 +597,110 @@ def image_display(row, data, dataset, cnn, searching_method, number_of_images):
         img = parse_images(img)
 
         return img
+
+#---File Manager Related Callbacks---#
+@app.callback(
+    Output("collapse", "is_open"),
+    Input("collapse-button", "n_clicks"),
+    State("collapse", "is_open")
+)
+def toggle_collapse(n, is_open):
+    if n:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output("modal", "is_open"),
+    Input("delete-files", "n_clicks"),
+    Input("confirm-delete", "n_clicks"),  
+    State("modal", "is_open")
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output('dummy-data', 'data'),
+    [Input('dash-uploader', 'isCompleted')],
+    [State('dash-uploader', 'fileNames'),
+     State('dash-uploader', 'upload_id')],
+)
+def upload_zip(iscompleted, upload_filename, upload_id):
+    if not iscompleted:
+        return 0
+
+    if upload_filename is not None:
+        path_to_zip_file = pathlib.Path(UPLOAD_FOLDER_ROOT) / upload_filename[0]
+        if upload_filename[0].split('.')[-1] == 'zip':   # unzip files and delete zip file
+            zip_ref = zipfile.ZipFile(path_to_zip_file)  # create zipfile object
+            path_to_folder = pathlib.Path(UPLOAD_FOLDER_ROOT) / upload_filename[0].split('.')[-2]
+            if (upload_filename[0].split('.')[-2] + '/') in zip_ref.namelist():
+                zip_ref.extractall(pathlib.Path(UPLOAD_FOLDER_ROOT))    # extract file to dir
+            else:
+                zip_ref.extractall(path_to_folder)
+
+            zip_ref.close()  # close file
+            os.remove(path_to_zip_file)
+
+    return 0 
+
+@app.callback(
+    Output('files-table', 'data'),
+    Output('file-paths', 'data'),
+    Input('browse-format', 'value'),
+    Input('browse-dir', 'n_clicks'),
+    Input('import-dir', 'n_clicks'),
+    Input('confirm-delete','n_clicks'),
+    Input('move-dir', 'n_clicks'),
+    Input('files-table', 'selected_rows'),
+    Input('file-paths', 'data'),
+    Input('my-toggle-switch', 'value'),
+    State('dest-dir-name', 'value')
+)
+def file_manager(browse_format, browse_n_clicks, import_n_clicks, delete_n_clicks, 
+                  move_dir_n_clicks, rows, selected_paths, docker_path, dest):
+    changed_id = dash.callback_context.triggered[0]['prop_id']
+    files = []
+    if browse_n_clicks or import_n_clicks:
+        files = filename_list(DOCKER_DATA, browse_format)
+        
+    selected_files = []
+    if bool(rows):
+        for row in rows:
+            selected_files.append(files[row])
+    
+    if browse_n_clicks and changed_id == 'confirm-delete.n_clicks':
+        for filepath in selected_files:
+            if os.path.isdir(filepath['file_path']):
+               shutil.rmtree(filepath['file_path'])
+            else:
+                os.remove(filepath['file_path'])
+        selected_files = []
+        files = filename_list(DOCKER_DATA, browse_format)
+    
+    if browse_n_clicks and changed_id == 'move-dir.n_clicks':
+        if dest is None:
+            dest = ''
+        destination = DOCKER_DATA / dest
+        destination.mkdir(parents=True, exist_ok=True)
+        if bool(rows):
+            sources = selected_paths
+            for source in sources:
+                if os.path.isdir(source['file_path']):
+                    move_dir(source['file_path'], str(destination))
+                    shutil.rmtree(source['file_path'])
+                else:
+                    move_a_file(source['file_path'], str(destination))
+                
+            selected_files = []
+            files = filename_list(DOCKER_DATA, browse_format)
+
+    if docker_path:
+        return files, selected_files
+    else:
+        return docker_to_local_path(files, DOCKER_HOME, LOCAL_HOME), selected_files
+
 
 if __name__ == '__main__':
     app.run_server(host = '0.0.0.0', port = 8061, debug=True)

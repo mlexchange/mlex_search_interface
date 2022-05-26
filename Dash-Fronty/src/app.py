@@ -14,6 +14,9 @@ import json
 import datetime
 import os
 import pathlib
+import zipfile
+import shutil
+from file_manager import filename_list, docker_to_local_path
 
 
 
@@ -274,6 +277,16 @@ file_explorer = html.Div(
     ]
 )
 
+browser_cache =html.Div(
+        id="no-display",
+        children=[
+            dcc.Store(id='file-paths', data=[]),
+            dcc.Store(id='current-page', data=0),
+            dcc.Store(id='image-order', data=[]),
+            dcc.Store(id='dummy-data', data=0)
+        ],
+    )
+
 image_search_card = dbc.Card(
     id = "image-search-card",
     children = [
@@ -470,7 +483,7 @@ app.layout = html.Div([
     State('text-input', 'value')
 )
 def text_search(n_clicks, input):
-    url = f'http://fastapi:8060/search_api/search/document/?keyword={input}'
+    url = f'http://search-api:8060/api/v0/search/document/?keyword={input}'
     resp = requests.get(url).json()
     infos=[]
     keys =[]
@@ -484,7 +497,7 @@ def text_search(n_clicks, input):
                 keys.append({'id': key, 'name': key})
         i += 1    
         infos.append(info_dict)
-    return infos,keys
+    return infos, keys
 
 # @app.callback(
 #     Output('output-image-upload', 'children'),
@@ -645,61 +658,43 @@ def upload_zip(iscompleted, upload_filename, upload_id):
 
     return 0 
 
-@app.callback(
-    Output('files-table', 'data'),
-    Output('file-paths', 'data'),
-    Input('browse-format', 'value'),
-    Input('browse-dir', 'n_clicks'),
-    Input('import-dir', 'n_clicks'),
-    Input('confirm-delete','n_clicks'),
-    Input('move-dir', 'n_clicks'),
-    Input('files-table', 'selected_rows'),
-    Input('file-paths', 'data'),
-    Input('my-toggle-switch', 'value'),
-    State('dest-dir-name', 'value')
-)
-def file_manager(browse_format, browse_n_clicks, import_n_clicks, delete_n_clicks, 
-                  move_dir_n_clicks, rows, selected_paths, docker_path, dest):
-    changed_id = dash.callback_context.triggered[0]['prop_id']
-    files = []
-    if browse_n_clicks or import_n_clicks:
-        files = filename_list(DOCKER_DATA, browse_format)
+# @app.callback(
+#     Output('files-table', 'data'),
+#     Output('file-paths', 'data'),
+#     Input('browse-format', 'value'),
+#     Input('browse-dir', 'n_clicks'),
+#     Input('import-dir', 'n_clicks'),
+#     Input('confirm-delete','n_clicks'),
+#     Input('files-table', 'selected_rows'),
+#     Input('file-paths', 'data'),
+#     Input('my-toggle-switch', 'value'),
+#     State('dest-dir-name', 'value')
+# )
+# def file_manager(browse_format, browse_n_clicks, import_n_clicks, delete_n_clicks, 
+#                 rows, selected_paths, docker_path, dest):
+#     changed_id = dash.callback_context.triggered[0]['prop_id']
+#     files = []
+#     if browse_n_clicks or import_n_clicks:
+#         files = filename_list(DOCKER_DATA, browse_format)
         
-    selected_files = []
-    if bool(rows):
-        for row in rows:
-            selected_files.append(files[row])
+#     selected_files = []
+#     if bool(rows):
+#         for row in rows:
+#             selected_files.append(files[row])
     
-    if browse_n_clicks and changed_id == 'confirm-delete.n_clicks':
-        for filepath in selected_files:
-            if os.path.isdir(filepath['file_path']):
-               shutil.rmtree(filepath['file_path'])
-            else:
-                os.remove(filepath['file_path'])
-        selected_files = []
-        files = filename_list(DOCKER_DATA, browse_format)
-    
-    if browse_n_clicks and changed_id == 'move-dir.n_clicks':
-        if dest is None:
-            dest = ''
-        destination = DOCKER_DATA / dest
-        destination.mkdir(parents=True, exist_ok=True)
-        if bool(rows):
-            sources = selected_paths
-            for source in sources:
-                if os.path.isdir(source['file_path']):
-                    move_dir(source['file_path'], str(destination))
-                    shutil.rmtree(source['file_path'])
-                else:
-                    move_a_file(source['file_path'], str(destination))
-                
-            selected_files = []
-            files = filename_list(DOCKER_DATA, browse_format)
+#     if browse_n_clicks and changed_id == 'confirm-delete.n_clicks':
+#         for filepath in selected_files:
+#             if os.path.isdir(filepath['file_path']):
+#                shutil.rmtree(filepath['file_path'])
+#             else:
+#                 os.remove(filepath['file_path'])
+#         selected_files = []
+#         files = filename_list(DOCKER_DATA, browse_format)
 
-    if docker_path:
-        return files, selected_files
-    else:
-        return docker_to_local_path(files, DOCKER_HOME, LOCAL_HOME), selected_files
+#     if docker_path:
+#         return files, selected_files
+#     else:
+#         return docker_to_local_path(files, DOCKER_HOME, LOCAL_HOME), selected_files
 
 
 if __name__ == '__main__':

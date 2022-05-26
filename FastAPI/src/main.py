@@ -4,6 +4,7 @@ from elasticsearch import Elasticsearch, exceptions
 from elasticsearch_dsl import Search, Index, Document
 from ssl import create_default_context
 import json
+import requests
 
 #----------Elastic Authentication----------#
 cert = create_default_context(cafile = '/app/fastapi/src/certs/ca/ca.crt')
@@ -12,8 +13,8 @@ es = Elasticsearch('https://es01:9200',
                     ssl_context=cert)
 
 #----------Global Varibles----------#
-API_URL_PREFIX = '/search_api'
-
+API_URL_PREFIX = '/api/v0'
+KEYS = ["name", "version", "type", "uri", "application", "reference", "description", "content_type", "content_id", "owner"]
 #----------Classes----------#
 class NewIndex(BaseModel):
     index: str
@@ -23,7 +24,7 @@ class NewDocument(BaseModel):
     version: str
     type: str
     uri: str
-    application: str
+    application: list
     reference: str
     description: str
     content_type: str
@@ -31,7 +32,10 @@ class NewDocument(BaseModel):
     owner: str
 
 #----------Fast API Setup----------#
-app = FastAPI(docs_url = "/search_api/docs")
+app = FastAPI(  openapi_url ="/api/lbl-mlexchange/openapi.json",
+                docs_url    ="/api/lbl-mlexchange/docs",
+                redoc_url   ="/api/lbl-mlexchange/redoc",
+             )
 
 # Core HTTP Methods:
 # GET : ask app to get something and return it to you
@@ -54,7 +58,25 @@ def search(keyword: str) -> list:
     return list(resp)
 
 #----------POST----------#
-@app.post(API_URL_PREFIX + '/index/', status_code=201, tags = ['Index'])
+@app.post(API_URL_PREFIX + '/receiver', status_code=201, tags = ['Webhook'])
+def webhook_receiver(msg: dict):
+    content_id = msg['content_id']
+    content_type = msg['content_type']
+    params = {
+        'index': content_type,
+        'doc_id': content_id}
+    if msg['event'] == 'add_content':
+        content = requests.get(f'http://content-api:8000/api/v0/contents/{content_id}/content').json()
+        content_data = {}
+        for key, value in content.items():
+            if key in KEYS:
+                content_data[key] = value
+        requests.post('http://search-api:8060/api/v0/index/document', params = params, json = content_data)
+    elif msg['event'] == 'delete_content':
+        requests.delete(f'http://search-api:8060/api/v0/index/{content_type}/document/{content_id}')
+
+
+@app.post(API_URL_PREFIX + '/index', status_code=201, tags = ['Index'])
 def create_index(req: NewIndex):
     '''
     Create a new index for elasticsearch.
@@ -112,7 +134,7 @@ def delete_index(index: str):
     else:
         return resp
 
-@app.delete(API_URL_PREFIX + '/index/{index}/document/{doc_id}', status_code = 204, tags = ['Document'])
+@app.delete(API_URL_PREFIX + '/index/{index}/document/{doc_id}', status_code = 200, tags = ['Document'])
 def delete_doc(index: str, doc_id: str):
     '''
     Delete the document within the index.
@@ -129,3 +151,4 @@ def delete_doc(index: str, doc_id: str):
         resp = Document().delete(using = es, index = index, id = doc_id)
     except exceptions.NotFoundError as e:
         raise HTTPException(status_code = 404, detail = str(e))
+    return print(f'Successfully deleted content_id: {doc_id} within "{index}" category')

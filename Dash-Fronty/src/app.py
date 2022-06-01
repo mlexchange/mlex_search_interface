@@ -9,6 +9,7 @@ from dash.exceptions import PreventUpdate
 import imageio
 import numpy as np
 import plotly.express as px
+import plotly.graph_objs as go
 import requests
 import json
 import datetime
@@ -28,12 +29,12 @@ app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callbac
 #------------Global Variable-------------#
 USER = 'Dummy-Searcher' 
 
-DOCKER_DATA = pathlib.Path.home() / 'data'
+DOCKER_DATA = pathlib.Path.home().parent / 'data'
 LOCAL_DATA = str(os.environ['DATA_DIR'])
 DOCKER_HOME = str(DOCKER_DATA) + '/'
 LOCAL_HOME = str(LOCAL_DATA) 
 
-UPLOAD_FOLDER_ROOT = DOCKER_DATA / 'upload'
+UPLOAD_FOLDER_ROOT = DOCKER_DATA / 'query'
 du.configure_upload(app, UPLOAD_FOLDER_ROOT, use_upload_id=False)
 #-----------Layout----------------#
 header= dbc.Navbar(
@@ -287,6 +288,37 @@ browser_cache =html.Div(
         ],
     )
 
+def parse_images(img):
+    # Convert the image string to numpy array and create a
+    # Plotly figure, see https://plotly.com/python/imshow/
+    fig = px.imshow(img)
+
+    # Hide the axes and the tooltips
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(t=20, b=0, l=0, r=0),
+        xaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            linewidth=0
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            linewidth=0
+        ),
+        hovermode=False
+    )
+    return fig
+
+def blank_fig():
+    fig = go.Figure(go.Scatter(x=[], y = []))
+    fig.update_layout(template = None)
+    fig.update_xaxes(showgrid = False, showticklabels = False, zeroline=False)
+    fig.update_yaxes(showgrid = False, showticklabels = False, zeroline=False)
+    return fig
+
 image_search_card = dbc.Card(
     id = "image-search-card",
     children = [
@@ -300,7 +332,7 @@ image_search_card = dbc.Card(
                             {'label': 'Fibers', 'value': 'fibers'},
                             {'label': 'GISAXS', 'value': 'gisaxs'},
                             ],
-                    id = 'dataset',
+                    id = 'category',
                     placeholder = "Select Category",
                     )
                 ),
@@ -360,45 +392,13 @@ image_search_card = dbc.Card(
         html.Br(),
         dbc.Label("Upload Image Here: "),   
         file_explorer,
-        html.Div(dcc.Graph(id='image-search-results',)),
+        dbc.Row([
+            dbc.Col(dcc.Graph(id='raw-image-results', figure = blank_fig())),
+            dbc.Col(dcc.Graph(id='image-search-results', figure = blank_fig())),
+        ]),
+        #html.Div(dcc.Graph(id='image-search-results', figure = blank_fig())),
         html.Div(id = 'selection')
 ])
-
-def parse_contents(contents, filename, date):
-    return html.Div([
-        html.H5(filename),
-        html.H6(datetime.datetime.fromtimestamp(date)),
-
-        # HTML images accept base64 encoded strings in the same format
-        # that is supplied by the upload
-        html.Img(src = contents, style = {'width':'60%', 'margin': '25px'}),
-        html.Hr(),
-    ])
-
-def parse_images(img):
-    # Convert the image string to numpy array and create a
-    # Plotly figure, see https://plotly.com/python/imshow/
-    fig = px.imshow(img)
-
-    # Hide the axes and the tooltips
-    fig.update_layout(
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(t=20, b=0, l=0, r=0),
-        xaxis=dict(
-            showgrid=False,
-            showticklabels=False,
-            linewidth=0
-        ),
-        yaxis=dict(
-            showgrid=False,
-            showticklabels=False,
-            linewidth=0
-        ),
-        hovermode=False
-    )
-    return fig
-
 
 job_status_display = [
     html.Div(
@@ -472,6 +472,7 @@ app.layout = html.Div([
         dbc.Row(text_search_card),
         dbc.Row(image_search_card),
         dbc.Row(job_display),
+        dbc.Row(browser_cache),
         ]),
 ])
 
@@ -499,32 +500,23 @@ def text_search(n_clicks, input):
         infos.append(info_dict)
     return infos, keys
 
-# @app.callback(
-#     Output('output-image-upload', 'children'),
-#     Input('upload-image', 'contents'),
-#     State('upload-image', 'filename'),
-#     State('upload-image', 'last_modified')
-# )
-# def display_image(list_of_contents, list_of_names, list_of_dates):
-#     if list_of_contents is not None:
-#         children = [
-#             parse_contents(c, n, d) for c, n, d in
-#             zip(list_of_contents, list_of_names, list_of_dates)]
-#         return children
-
 @app.callback(
     Output('selection', 'children'),
     Input('image-search-button', 'n_clicks'),
-    State('dataset', 'value'),
+    State('category', 'value'),
     State('cnn', 'value'),
     State('searching-method', 'value'),
     State('number-of-images', 'value'),
     prevent_intial_call = True
 )
-def image_search(n_clicks, dataset, cnn, searching_method, number_of_images):
+def image_search(n_clicks, category, cnn, searching_method, number_of_images):
     
     if n_clicks > 0:
-        selection = [dataset, cnn, searching_method, number_of_images]
+        selection = [category, cnn, searching_method, number_of_images]
+
+        database_dir = f'data/database/{category}/'
+        query_dir = 'data/query/'
+        output_dir = 'data/output/'
 
         paras = {
             "feature_extraction_method": cnn, 
@@ -544,11 +536,9 @@ def image_search(n_clicks, dataset, cnn, searching_method, number_of_images):
                 'mlex_app': 'mlex_search',
                 'service_type': 'backend',
                 'working_directory': LOCAL_DATA,
-                # 'working_directory': '/Users/tibbers/MLExchange/mlex_pyCBIR/data',
-                # 'working_directory': '/Users/tibbers/mlexchange/mlex_pyCBIR/data',
                 'job_kwargs': {
                     'uri': 'mlexchange/pycbir', 
-                    'cmd': f'python3 src/model.py data/{dataset}/database/ data/{dataset}/query/ data/{dataset}/output/ ' + '\'' + json.dumps(paras) + '\'',
+                    'cmd': f'python3 src/model.py {database_dir} {query_dir} {output_dir} ' + '\'' + json.dumps(paras) + '\'',
                     # 'cmd': 'sleep 600',
                     # 'kwargs': {'parameters': ParaPlaceholder}
                     }
@@ -594,18 +584,18 @@ def log_display(row, data):
     Output('image-search-results', 'figure'),
     Input('job-table', 'selected_rows'),
     State('job-table', 'data'),
-    State('dataset', 'value'),
+    State('category', 'value'),
     State('cnn', 'value'),
     State('searching-method', 'value'),
     State('number-of-images', 'value'),
     prevent_intial_call = True
 )
-def image_display(row, data, dataset, cnn, searching_method, number_of_images):
+def image_display(row, data, category, cnn, searching_method, number_of_images):
     if not row:
         raise PreventUpdate
 
     else:
-        img_path = f'../../data/{dataset}/output/result_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
+        img_path = f'../../data/output/result_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
         img = np.array(imageio.imread(img_path))
         img = parse_images(img)
 
@@ -658,44 +648,60 @@ def upload_zip(iscompleted, upload_filename, upload_id):
 
     return 0 
 
-# @app.callback(
-#     Output('files-table', 'data'),
-#     Output('file-paths', 'data'),
-#     Input('browse-format', 'value'),
-#     Input('browse-dir', 'n_clicks'),
-#     Input('import-dir', 'n_clicks'),
-#     Input('confirm-delete','n_clicks'),
-#     Input('files-table', 'selected_rows'),
-#     Input('file-paths', 'data'),
-#     Input('my-toggle-switch', 'value'),
-#     State('dest-dir-name', 'value')
-# )
-# def file_manager(browse_format, browse_n_clicks, import_n_clicks, delete_n_clicks, 
-#                 rows, selected_paths, docker_path, dest):
-#     changed_id = dash.callback_context.triggered[0]['prop_id']
-#     files = []
-#     if browse_n_clicks or import_n_clicks:
-#         files = filename_list(DOCKER_DATA, browse_format)
+@app.callback(
+    Output('files-table', 'data'),
+    Output('file-paths', 'data'),
+    Input('browse-format', 'value'),
+    Input('browse-dir', 'n_clicks'),
+    Input('import-dir', 'n_clicks'),
+    Input('confirm-delete','n_clicks'),
+    Input('files-table', 'selected_rows'),
+    Input('file-paths', 'data'),
+    Input('my-toggle-switch', 'value'),
+)
+def file_manager(browse_format, browse_n_clicks, import_n_clicks, delete_n_clicks, 
+                rows, selected_paths, docker_path):
+    changed_id = dash.callback_context.triggered[0]['prop_id']
+    files = []
+    if browse_n_clicks or import_n_clicks:
+        files = filename_list(UPLOAD_FOLDER_ROOT, browse_format)
         
-#     selected_files = []
-#     if bool(rows):
-#         for row in rows:
-#             selected_files.append(files[row])
+    selected_files = []
+    if bool(rows):
+        for row in rows:
+            selected_files.append(files[row])
     
-#     if browse_n_clicks and changed_id == 'confirm-delete.n_clicks':
-#         for filepath in selected_files:
-#             if os.path.isdir(filepath['file_path']):
-#                shutil.rmtree(filepath['file_path'])
-#             else:
-#                 os.remove(filepath['file_path'])
-#         selected_files = []
-#         files = filename_list(DOCKER_DATA, browse_format)
+    if browse_n_clicks and changed_id == 'confirm-delete.n_clicks':
+        for filepath in selected_files:
+            if os.path.isdir(filepath['file_path']):
+               shutil.rmtree(filepath['file_path'])
+            else:
+                os.remove(filepath['file_path'])
+        selected_files = []
+        files = filename_list(UPLOAD_FOLDER_ROOT, browse_format)
 
-#     if docker_path:
-#         return files, selected_files
-#     else:
-#         return docker_to_local_path(files, DOCKER_HOME, LOCAL_HOME), selected_files
+    if docker_path:
+        return files, selected_files
+    else:
+        return docker_to_local_path(files, DOCKER_HOME, LOCAL_HOME), selected_files
 
+@app.callback(
+    Output('raw-image-results', 'figure'),
+    Input('files-table', 'selected_rows'),
+    Input('file-paths', 'data'),
+)
+def display_raw_image(row, selected_files):
+    if not row:
+        raise PreventUpdate
+    
+    else:
+        if selected_files[0]['file_type'] == 'file':
+            img_path = selected_files[0]['file_path']
+            img = np.array(imageio.imread(img_path))
+            img = parse_images(img)
+            return img
+        else:
+            raise PreventUpdate
 
 if __name__ == '__main__':
     app.run_server(host = '0.0.0.0', port = 8061, debug=True)

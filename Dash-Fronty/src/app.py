@@ -396,7 +396,6 @@ image_search_card = dbc.Card(
             dbc.Col(dcc.Graph(id='raw-image-results', figure = blank_fig())),
             dbc.Col(dcc.Graph(id='image-search-results', figure = blank_fig())),
         ]),
-        #html.Div(dcc.Graph(id='image-search-results', figure = blank_fig())),
         html.Div(id = 'selection')
 ])
 
@@ -408,15 +407,14 @@ job_status_display = [
                 columns=[
                     {'name': 'Job ID', 'id': 'job_id'},
                     {'name': 'Status', 'id': 'status'},
-                    {'name': 'Submission Time', 'id': 'submission_time'},
-                    {'name': 'Execution Time', 'id': 'execution_time'},
-                    {'name': 'End Time', 'id': 'end_time'},
-                    # {'name': 'Logs', 'id': 'job_logs'}
+                    {'name': 'Database', 'id': 'database'},
+                    {'name': 'CNN', 'id': 'cnn'},
+                    {'name': 'Searching Method', 'id': 'searching_method'},
+                    {'name': 'Number of Retrieved Images', 'id': 'number_of_images'},
                 ],
                 data = [],
                 row_selectable='single',
                 style_cell={'padding': '1rem', 'textAlign': 'left'},
-                fixed_rows={'headers': True},
                 css=[{"selector": ".show-hide", "rule": "display: none"}],
                 style_data_conditional=[
                     {'if': {'column_id': 'status', 'filter_query': '{status} = complete'},
@@ -426,7 +424,7 @@ job_status_display = [
                      'backgroundColor': 'red',
                      'color': 'white'}
                 ],
-                style_table={'height':'18rem', 'overflowY': 'auto'}
+                style_table={'height':'18rem', 'overflowX': 'auto', 'overflowY': 'auto'}
             ),
             dcc.Interval(
                 id='job-refresher',
@@ -517,6 +515,7 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images):
         database_dir = f'data/database/{category}/'
         query_dir = 'data/query/'
         output_dir = 'data/output/'
+        pre_trained_cnn = f'data/cnn/{cnn}.h5'
 
         paras = {
             "feature_extraction_method": cnn, 
@@ -538,9 +537,13 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images):
                 'working_directory': LOCAL_DATA,
                 'job_kwargs': {
                     'uri': 'mlexchange/pycbir', 
-                    'cmd': f'python3 src/model.py {database_dir} {query_dir} {output_dir} ' + '\'' + json.dumps(paras) + '\'',
-                    # 'cmd': 'sleep 600',
-                    # 'kwargs': {'parameters': ParaPlaceholder}
+                    'cmd': f'python3 src/pycbir_cl.py {database_dir} {query_dir} {output_dir} {pre_trained_cnn} ' + '\'' + json.dumps(paras) + '\'',
+                    'kwargs': {
+                        'database': category,
+                        'cnn': paras['feature_extraction_method'],
+                        'searching_method': paras['searching_method'],
+                        'number_of_images': paras['number_of_images'],
+                    }
                     }
                 }],
                 'dependencies': {'0': []}
@@ -561,11 +564,12 @@ def status_check(n):
     data_table = []
     for job in list_of_jobs:
         data_table.insert(0, dict(job_id=job['uid'],
-                                  submission_time = job['timestamps']['submission_time'],
-                                  execution_time = job['timestamps']['execution_time'],
-                                  end_time = job['timestamps']['end_time'],
-                                  status=job['status']['state'],
-                                  job_logs=job['logs'])
+                                  status = job['status']['state'],
+                                  database = job['job_kwargs']['kwargs']['database'],
+                                  cnn = job['job_kwargs']['kwargs']['cnn'],
+                                  searching_method = job['job_kwargs']['kwargs']['searching_method'],
+                                  number_of_images = job['job_kwargs']['kwargs']['number_of_images'],
+                                  job_logs = job['logs'])
         )
     return data_table
 
@@ -584,17 +588,16 @@ def log_display(row, data):
     Output('image-search-results', 'figure'),
     Input('job-table', 'selected_rows'),
     State('job-table', 'data'),
-    State('category', 'value'),
-    State('cnn', 'value'),
-    State('searching-method', 'value'),
-    State('number-of-images', 'value'),
     prevent_intial_call = True
 )
-def image_display(row, data, category, cnn, searching_method, number_of_images):
+def image_display(row, data):
     if not row:
         raise PreventUpdate
 
     else:
+        cnn = data[row[0]]['cnn']
+        number_of_images = data[row[0]]['number_of_images']
+        searching_method = data[row[0]]['searching_method']
         img_path = f'../../data/output/result_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
         img = np.array(imageio.imread(img_path))
         img = parse_images(img)

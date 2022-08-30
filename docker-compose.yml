@@ -1,4 +1,4 @@
-version: "3"
+version: "2.2"
 services:
 
 #-----Elastic stack-----#  
@@ -7,7 +7,7 @@ services:
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     networks:
-      - searchapi-network
+      - computing_api_default
     user: "0"
     command: >
       bash -c '
@@ -74,7 +74,7 @@ services:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
     networks:
-      - searchapi-network
+      - computing_api_default
     ports:
       - ${ES_PORT}:9200
     environment:
@@ -119,7 +119,7 @@ services:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata02:/usr/share/elasticsearch/data
     networks:
-      - searchapi-network
+      - computing_api_default
     environment:
       - node.name=es02
       - cluster.name=${CLUSTER_NAME}
@@ -161,7 +161,7 @@ services:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata03:/usr/share/elasticsearch/data
     networks:
-      - searchapi-network
+      - computing_api_default
     environment:
       - node.name=es03
       - cluster.name=${CLUSTER_NAME}
@@ -208,7 +208,7 @@ services:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
     networks:
-      - searchapi-network
+      - computing_api_default
     ports:
       - ${KIBANA_PORT}:5601
     environment:
@@ -239,7 +239,7 @@ services:
       es03:
         condition: service_healthy
     restart: "unless-stopped"
-    container_name: "FastAPI"
+    container_name: "search-api"
     build:
       context: "FastAPI/"
       dockerfile: "docker/Dockerfile"
@@ -247,7 +247,7 @@ services:
       - certs:/app/fastapi/src/certs
       - ./FastAPI/src:/app/fastapi/src
     networks:
-      - searchapi-network
+      - computing_api_default
     expose:
       - "8060"
     ports:
@@ -271,8 +271,7 @@ services:
       - certs:/app/mining/src/certs
       - ./Mining/src:/app/mining/src
     networks:
-      - searchapi-network
-      - content_regist_content_registry_network
+      - computing_api_default
 
   #-----Frontend-----#    
   dash-fronty:
@@ -289,7 +288,6 @@ services:
       - ./Dash-Fronty/src:/app/dash-fronty/src
       - ./Data:/app/data
     networks:
-      - searchapi-network
       - computing_api_default
     expose:
       - "8061"
@@ -309,9 +307,5 @@ volumes:
     driver: local
 
 networks:
-  searchapi-network:
-    driver: bridge
   computing_api_default:
-    external: true
-  content_regist_content_registry_network:
     external: true

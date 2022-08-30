@@ -23,11 +23,13 @@ docker-compose up --build
 4. Wait until the process finish, you should see 6 containers under the 'mlex_search_api' container:
 
 - Dash-Fronty (frontend)
-- FastAPI (backend)
-- Mining (data ingestion, this container will exit upon succesful execution)
-- mlex_search_api_elasticsearch_1 (search engine)
+- search-api (backend)
+- Mining (initial data ingestion, this container will exit upon succesful execution)
+- mlex_search_api_es01_1 (multinode search engine leveraged from elasticsearch)
+- mlex_search_api_es02_1 (search engine node #2)
+- mlex_search_api_es03_1 (search engine node #3)
 - mlex_search_api_kibana_1 (visualization tool for elasticsearch cluster)
-- mlex_search_api_setup_1 (security setup for elasticsearch engine)
+- mlex_search_api_setup_1 (security setup for elasticsearch engine, this will exit upon succesful execution)
 
 
 ## Usage
@@ -37,15 +39,17 @@ There are two approaches to launch the dash interface:
 - Navigate to 'Dash-Fronty' container in Docker Desktop, click first button 'open in browser'
 - Open a new browser, navigate to 'localhost:8061'
 
+Two searching methods has been enabled:
+
+- Text search: search for contents from content registry
+- Image search: similarity search using PyCBIR backend. To use, you need to download and dockerize [[mlex_pyCBIR]](https://github.com/mlexchange/mlex_pyCBIR).
+
 
 ## API Calls
 Search API uses FastAPI as the backend, current available calls:
 
-- GET /search/{keyword}
-- GET /create-index/{index}
-- GET /create-doc/{index}/{doc} (under development)
-- GET /delete-doc/{index}/{keyword}
-- GET /delete-index/{index}
+http://localhost:8060/api/lbl-mlexchange/docs
+
 
 ## Contribution
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

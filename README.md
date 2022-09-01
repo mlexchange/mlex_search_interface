@@ -31,6 +31,46 @@ docker-compose up --build
 - mlex_search_api_kibana_1 (visualization tool for elasticsearch cluster)
 - mlex_search_api_setup_1 (security setup for elasticsearch engine, this will exit upon succesful execution)
 
+Note: If you encounter issues elastic server, please make sure the `vm.max_map_count` kernel setting must be set to at least 262144 for production use. To do this:
+
+Linux:
+To view the current value for the vm.max_map_count setting, run:
+```
+grep vm.max_map_count /etc/sysctl.conf
+vm.max_map_count=262144
+```
+To apply the setting on a live system, run:
+```
+sysctl -w vm.max_map_count=262144
+```
+
+To permanently change the value for the vm.max_map_count setting, update the value in /etc/sysctl.conf.
+
+MacOS with Docker for Mac:
+The vm.max_map_count setting must be set within the xhyve virtual machine:
+```
+# From the command line, run:
+screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
+# Press enter and use sysctl to configure vm.max_map_count:
+sysctl -w vm.max_map_count=262144
+#To exit the screen session, type Ctrl a d.
+```
+
+Windows and MacOS with Docker Desktop:
+The vm.max_map_count setting must be set via docker-machine:
+```
+docker-machine ssh
+sudo sysctl -w vm.max_map_count=262144
+```
+
+Windows with Docker Desktop WSL 2 backend:
+The vm.max_map_count setting must be set in the docker-desktop container:
+```
+wsl -d docker-desktop
+sysctl -w vm.max_map_count=262144
+```
+
+For more details related to this issue, please refer to [[Elasticsearch Guide]](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html) 
 
 ## Usage
 

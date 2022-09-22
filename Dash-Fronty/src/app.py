@@ -18,7 +18,7 @@ import pathlib
 import zipfile
 import shutil
 from file_manager import filename_list, docker_to_local_path
-
+import helper_utils
 
 
 #------------App Setup------------#
@@ -123,7 +123,7 @@ file_paths_table = html.Div(
                 ],
                 data = [],
                 hidden_columns = ['file_type'],
-                row_selectable='multi',
+                row_selectable='single',
                 style_cell={'padding': '0.5rem', 'textAlign': 'left'},
                 fixed_rows={'headers': False},
                 css=[{"selector": ".show-hide", "rule": "display: none"}],
@@ -284,6 +284,7 @@ browser_cache =html.Div(
             dcc.Store(id='file-paths', data=[]),
             dcc.Store(id='current-page', data=0),
             dcc.Store(id='image-order', data=[]),
+            dcc.Store(id='counter', data=0),
             dcc.Store(id='dummy-data', data=0)
         ],
     )
@@ -405,7 +406,7 @@ job_status_display = [
             dash_table.DataTable(
                 id='job-table',
                 columns=[
-                    {'name': 'Job ID', 'id': 'job_id'},
+                    {'name': 'Type', 'id': 'job_type'},
                     {'name': 'Status', 'id': 'status'},
                     {'name': 'Database', 'id': 'database'},
                     {'name': 'CNN', 'id': 'cnn'},
@@ -500,15 +501,21 @@ def text_search(n_clicks, input):
 
 @app.callback(
     Output('selection', 'children'),
+    Output('counter', 'data'),
     Input('image-search-button', 'n_clicks'),
     State('category', 'value'),
     State('cnn', 'value'),
     State('searching-method', 'value'),
     State('number-of-images', 'value'),
+    State('counter', 'data'),
     prevent_intial_call = True
 )
-def image_search(n_clicks, category, cnn, searching_method, number_of_images):
+def image_search(n_clicks, category, cnn, searching_method, number_of_images, counts):
     
+    # initializes the counter according to the latest deploy job in the database
+    if counts == 0:
+        counts = helper_utils.init_counters(USER, 'deploy')
+
     if n_clicks > 0:
         selection = [category, cnn, searching_method, number_of_images]
 
@@ -527,9 +534,9 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images):
             'user_uid': USER,
             'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
             'requirements': {
-                'num_processors': 2,
-                'num_gpus': 0,
-                'num_nodes': 1
+                'num_processors': 2, # number of cpus, up to 10
+                'num_gpus': 0, # number of gpus, up to 2 in vaughan
+                'num_nodes': 1 # how many workers needed, suggested to keep as 1
                 },
             'job_list': [{
                 'mlex_app': 'mlex_search',
@@ -539,6 +546,7 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images):
                     'uri': 'mlexchange/pycbir', 
                     'cmd': f'python3 src/pycbir_cl.py {database_dir} {query_dir} {output_dir} {pre_trained_cnn} ' + '\'' + json.dumps(paras) + '\'',
                     'kwargs': {
+                        'job_type': 'deploy ' + str(counts),
                         'database': category,
                         'cnn': paras['feature_extraction_method'],
                         'searching_method': paras['searching_method'],
@@ -550,8 +558,9 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images):
             }
 
         resp = requests.post('http://job-service:8080/api/v0/workflows', json = job_request)
+        counts += 1
 
-        return f'Chosen parameters: {selection}; Status code: {resp.status_code}'
+        return [f'Chosen parameters: {selection}; Status code: {resp.status_code}', counts]
 
 @app.callback(
     Output('job-table', 'data'),
@@ -561,9 +570,10 @@ def status_check(n):
     url = f'http://job-service:8080/api/v0/jobs?&user={USER}&mlex_app=mlex_search'
     # check the status of the job and show in the list
     list_of_jobs = requests.get(url).json()
+    print(list_of_jobs)
     data_table = []
     for job in list_of_jobs:
-        data_table.insert(0, dict(job_id=job['uid'],
+        data_table.insert(0, dict(job_type=job['job_kwargs']['kwargs']['job_type'],
                                   status = job['status']['state'],
                                   database = job['job_kwargs']['kwargs']['database'],
                                   cnn = job['job_kwargs']['kwargs']['cnn'],
@@ -698,13 +708,19 @@ def display_raw_image(row, selected_files):
         raise PreventUpdate
     
     else:
-        if selected_files[0]['file_type'] == 'file':
-            img_path = selected_files[0]['file_path']
-            img = np.array(imageio.imread(img_path))
-            img = parse_images(img)
-            return img
+        if bool(selected_files):
+        
+            if selected_files[0]['file_type'] == 'file':
+                img_path = selected_files[0]['file_path']
+                img = np.array(imageio.imread(img_path))
+                img = parse_images(img)
+                return img
+            else:
+                raise PreventUpdate
         else:
             raise PreventUpdate
+# Maybe do clear out rather than prevent
+
 
 if __name__ == '__main__':
     app.run_server(host = '0.0.0.0', port = 8061, debug=True)

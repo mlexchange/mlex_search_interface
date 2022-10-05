@@ -11,7 +11,7 @@ def get_job(user, mlex_app):
     return response
 
 def init_counters(user, job_type):
-    job_list = get_job(user, 'seg-demo')
+    job_list = get_job(user, 'mlex_search')
     if job_list is not None:
         for job in reversed(job_list):
             last_job = job['job_kwargs']['kwargs']['job_type'].split()

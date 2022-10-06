@@ -58,6 +58,7 @@ def search(keyword: str) -> list:
     return list(resp)
 
 #----------POST----------#
+# This part has already been added in content registry
 # @app.post(API_URL_PREFIX + '/receiver', status_code=201, tags = ['Webhook'])
 # def webhook_receiver(msg: dict):
 #     content_id = msg['content_id']

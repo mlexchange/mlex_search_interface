@@ -18,7 +18,8 @@ import pathlib
 import zipfile
 import shutil
 from file_manager import filename_list, docker_to_local_path
-
+import helper_utils
+import uuid
 
 
 #------------App Setup------------#
@@ -123,7 +124,7 @@ file_paths_table = html.Div(
                 ],
                 data = [],
                 hidden_columns = ['file_type'],
-                row_selectable='multi',
+                row_selectable='single',
                 style_cell={'padding': '0.5rem', 'textAlign': 'left'},
                 fixed_rows={'headers': False},
                 css=[{"selector": ".show-hide", "rule": "display: none"}],
@@ -284,6 +285,7 @@ browser_cache =html.Div(
             dcc.Store(id='file-paths', data=[]),
             dcc.Store(id='current-page', data=0),
             dcc.Store(id='image-order', data=[]),
+            dcc.Store(id='counter', data=0),
             dcc.Store(id='dummy-data', data=0)
         ],
     )
@@ -350,6 +352,7 @@ image_search_card = dbc.Card(
             dbc.Col(
                 dcc.Dropdown(
                     options = [
+                            {'label': 'Faiss', 'value': 'faiss'},
                             {'label': 'Brute Force', 'value': 'bf'},
                             {'label': 'KDTree', 'value': 'kd'},
                             {'label': 'BallTree', 'value': 'bt'},
@@ -405,7 +408,8 @@ job_status_display = [
             dash_table.DataTable(
                 id='job-table',
                 columns=[
-                    {'name': 'Job ID', 'id': 'job_id'},
+                    {'name': 'ID', 'id': 'job_id'},
+                    {'name': 'Type', 'id': 'job_type'},
                     {'name': 'Status', 'id': 'status'},
                     {'name': 'Database', 'id': 'database'},
                     {'name': 'CNN', 'id': 'cnn'},
@@ -413,6 +417,7 @@ job_status_display = [
                     {'name': 'Number of Retrieved Images', 'id': 'number_of_images'},
                 ],
                 data = [],
+                hidden_columns = ['job_id'],
                 row_selectable='single',
                 style_cell={'padding': '1rem', 'textAlign': 'left'},
                 css=[{"selector": ".show-hide", "rule": "display: none"}],
@@ -500,58 +505,67 @@ def text_search(n_clicks, input):
 
 @app.callback(
     Output('selection', 'children'),
+    Output('counter', 'data'),
     Input('image-search-button', 'n_clicks'),
     State('category', 'value'),
     State('cnn', 'value'),
     State('searching-method', 'value'),
     State('number-of-images', 'value'),
-    prevent_intial_call = True
+    State('counter', 'data'),
+    prevent_initial_call = True
 )
-def image_search(n_clicks, category, cnn, searching_method, number_of_images):
-    
-    if n_clicks > 0:
-        selection = [category, cnn, searching_method, number_of_images]
+def image_search(n_clicks, category, cnn, searching_method, number_of_images, counts):
 
-        database_dir = f'data/database/{category}/'
-        query_dir = 'data/query/'
-        output_dir = 'data/output/'
-        pre_trained_cnn = f'data/cnn/{cnn}.h5'
+    # initializes the counter according to the latest deploy job in the database
+    counts = helper_utils.init_counters(USER, 'deploy')
 
-        paras = {
-            "feature_extraction_method": cnn, 
-            "searching_method": searching_method, 
-            "number_of_images": number_of_images
-            }
+    selection = [category, cnn, searching_method, number_of_images]
 
-        job_request = {
-            'user_uid': USER,
-            'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
-            'requirements': {
-                'num_processors': 2,
-                'num_gpus': 0,
-                'num_nodes': 1
-                },
-            'job_list': [{
-                'mlex_app': 'mlex_search',
-                'service_type': 'backend',
-                'working_directory': LOCAL_DATA,
-                'job_kwargs': {
-                    'uri': 'mlexchange/pycbir', 
-                    'cmd': f'python3 src/pycbir_cl.py {database_dir} {query_dir} {output_dir} {pre_trained_cnn} ' + '\'' + json.dumps(paras) + '\'',
-                    'kwargs': {
-                        'database': category,
-                        'cnn': paras['feature_extraction_method'],
-                        'searching_method': paras['searching_method'],
-                        'number_of_images': paras['number_of_images'],
-                    }
-                    }
-                }],
-                'dependencies': {'0': []}
-            }
+    database_dir = f'data/database/{category}/'
+    query_dir = 'data/query/'
+    output_dir = 'data/output/'
+    experiment_id = str(uuid.uuid4())  # create unique id for experiment
+    search_id = f'deploy_{counts}_' + experiment_id
+    pre_trained_cnn = f'data/cnn/{cnn}.h5'
 
-        resp = requests.post('http://job-service:8080/api/v0/workflows', json = job_request)
+    paras = {
+        "feature_extraction_method": cnn, 
+        "searching_method": searching_method, 
+        "number_of_images": number_of_images
+        }
 
-        return f'Chosen parameters: {selection}; Status code: {resp.status_code}'
+    job_request = {
+        'user_uid': USER,
+        'host_list': ['mlsandbox.als.lbl.gov', 'local.als.lbl.gov', 'vaughan.als.lbl.gov'],
+        'requirements': {
+            'num_processors': 2, # number of cpus, up to 10
+            'num_gpus': 0, # number of gpus, up to 2 in vaughan
+            'num_nodes': 1 # how many workers needed, suggested to keep as 1
+            },
+        'job_list': [{
+            'mlex_app': 'mlex_search',
+            'service_type': 'backend',
+            'working_directory': LOCAL_DATA,
+            'job_kwargs': {
+                'uri': 'mlexchange/pycbir', 
+                'cmd': f'python3 src/pycbir_cl.py {database_dir} {query_dir} {output_dir} {search_id} {pre_trained_cnn} ' + '\'' + json.dumps(paras) + '\'',
+                'kwargs': {
+                    'job_id': search_id,
+                    'job_type': f'deploy {counts}',
+                    'database': category,
+                    'cnn': paras['feature_extraction_method'],
+                    'searching_method': paras['searching_method'],
+                    'number_of_images': paras['number_of_images'],
+                }
+                }
+            }],
+            'dependencies': {'0': []}
+        }
+
+    resp = requests.post('http://job-service:8080/api/v0/workflows', json = job_request)
+    counts += 1
+    print(f'counter {selection} {counts}')
+    return f'Chosen parameters: {selection}; Status code: {resp.status_code}', counts
 
 @app.callback(
     Output('job-table', 'data'),
@@ -561,9 +575,11 @@ def status_check(n):
     url = f'http://job-service:8080/api/v0/jobs?&user={USER}&mlex_app=mlex_search'
     # check the status of the job and show in the list
     list_of_jobs = requests.get(url).json()
+    print(list_of_jobs, '------------')
     data_table = []
     for job in list_of_jobs:
-        data_table.insert(0, dict(job_id=job['uid'],
+        data_table.insert(0, dict(job_id = job['job_kwargs']['kwargs']['job_id'],
+                                  job_type = job['job_kwargs']['kwargs']['job_type'],
                                   status = job['status']['state'],
                                   database = job['job_kwargs']['kwargs']['database'],
                                   cnn = job['job_kwargs']['kwargs']['cnn'],
@@ -588,17 +604,19 @@ def log_display(row, data):
     Output('image-search-results', 'figure'),
     Input('job-table', 'selected_rows'),
     State('job-table', 'data'),
-    prevent_intial_call = True
+    prevent_initial_call = True
 )
 def image_display(row, data):
-    if not row:
+    if (not row) or (data[row[0]]['status'] != 'complete'):
         raise PreventUpdate
 
     else:
+        search_id = data[row[0]]['job_id']
+        database = data[row[0]]['database']
         cnn = data[row[0]]['cnn']
         number_of_images = data[row[0]]['number_of_images']
         searching_method = data[row[0]]['searching_method']
-        img_path = f'../../data/output/result_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
+        img_path = f'../../data/output/{search_id}/result_{database}_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
         img = np.array(imageio.imread(img_path))
         img = parse_images(img)
 
@@ -698,13 +716,19 @@ def display_raw_image(row, selected_files):
         raise PreventUpdate
     
     else:
-        if selected_files[0]['file_type'] == 'file':
-            img_path = selected_files[0]['file_path']
-            img = np.array(imageio.imread(img_path))
-            img = parse_images(img)
-            return img
+        if bool(selected_files):
+        
+            if selected_files[0]['file_type'] == 'file':
+                img_path = selected_files[0]['file_path']
+                img = np.array(imageio.imread(img_path))
+                img = parse_images(img)
+                return img
+            else:
+                raise PreventUpdate
         else:
             raise PreventUpdate
+# Maybe do clear out rather than prevent
+
 
 if __name__ == '__main__':
     app.run_server(host = '0.0.0.0', port = 8061, debug=True)

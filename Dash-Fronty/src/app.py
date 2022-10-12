@@ -398,8 +398,7 @@ image_search_card = dbc.Card(
         dbc.Row([
             dbc.Col(dcc.Graph(id='raw-image-results', figure = blank_fig())),
             dbc.Col(dcc.Graph(id='image-search-results', figure = blank_fig())),
-        ]),
-        html.Div(id = 'selection')
+        ])
 ])
 
 job_status_display = [
@@ -433,7 +432,7 @@ job_status_display = [
             ),
             dcc.Interval(
                 id='job-refresher',
-                interval=1*2000, # milliseconds
+                interval=1000, # milliseconds
                 n_intervals=0,
                 ),
             ]
@@ -504,7 +503,6 @@ def text_search(n_clicks, input):
     return infos, keys
 
 @app.callback(
-    Output('selection', 'children'),
     Output('counter', 'data'),
     Input('image-search-button', 'n_clicks'),
     State('category', 'value'),
@@ -518,8 +516,6 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images, co
 
     # initializes the counter according to the latest deploy job in the database
     counts = helper_utils.init_counters(USER, 'deploy')
-
-    selection = [category, cnn, searching_method, number_of_images]
 
     database_dir = f'data/database/{category}/'
     query_dir = 'data/query/'
@@ -564,8 +560,7 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images, co
 
     resp = requests.post('http://job-service:8080/api/v0/workflows', json = job_request)
     counts += 1
-    print(f'counter {selection} {counts}')
-    return f'Chosen parameters: {selection}; Status code: {resp.status_code}', counts
+    return counts
 
 @app.callback(
     Output('job-table', 'data'),
@@ -591,10 +586,11 @@ def status_check(n):
 
 @app.callback(
     Output('job-logs', 'value'),
-    Input('job-table', 'selected_rows'),
-    State('job-table', 'data'),
+    Input('job-refresher', 'n_intervals'),
+    State('job-table', 'selected_rows'),
+    State('job-table', 'data')
 )
-def log_display(row, data):
+def log_display(n, row, data):
     log = ''
     if row:
         log = data[row[0]]['job_logs']
@@ -602,11 +598,12 @@ def log_display(row, data):
 
 @app.callback(
     Output('image-search-results', 'figure'),
-    Input('job-table', 'selected_rows'),
+    Input('job-refresher', 'n_intervals'),
+    State('job-table', 'selected_rows'),
     State('job-table', 'data'),
     prevent_initial_call = True
 )
-def image_display(row, data):
+def image_display(n, row, data):
     if (not row) or (data[row[0]]['status'] != 'complete'):
         raise PreventUpdate
 

@@ -633,27 +633,27 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images, co
     counts += 1
     return counts
 
-# @app.callback(
-#     Output('job-table', 'data'),
-#     Input('job-refresher', 'n_intervals'),
-# )
-# def status_check(n):
-#     url = f'http://job-service:8080/api/v0/jobs?&user={USER}&mlex_app=mlex_search'
-#     # check the status of the job and show in the list
-#     list_of_jobs = requests.get(url).json()
-#     print(list_of_jobs, '------------')
-#     data_table = []
-#     for job in list_of_jobs:
-#         data_table.insert(0, dict(job_id = job['job_kwargs']['kwargs']['job_id'],
-#                                   job_type = job['job_kwargs']['kwargs']['job_type'],
-#                                   status = job['status']['state'],
-#                                   database = job['job_kwargs']['kwargs']['database'],
-#                                   cnn = job['job_kwargs']['kwargs']['cnn'],
-#                                   searching_method = job['job_kwargs']['kwargs']['searching_method'],
-#                                   number_of_images = job['job_kwargs']['kwargs']['number_of_images'],
-#                                   job_logs = job['logs'])
-#         )
-#     return data_table
+@app.callback(
+    Output('job-table', 'data'),
+    Input('job-refresher', 'n_intervals'),
+)
+def status_check(n):
+    url = f'http://job-service:8080/api/v0/jobs?&user={USER}&mlex_app=mlex_search'
+    # check the status of the job and show in the list
+    list_of_jobs = requests.get(url).json()
+    print(list_of_jobs, '------------')
+    data_table = []
+    for job in list_of_jobs:
+        data_table.insert(0, dict(job_id = job['job_kwargs']['kwargs']['job_id'],
+                                  job_type = job['job_kwargs']['kwargs']['job_type'],
+                                  status = job['status']['state'],
+                                  database = job['job_kwargs']['kwargs']['database'],
+                                  cnn = job['job_kwargs']['kwargs']['cnn'],
+                                  searching_method = job['job_kwargs']['kwargs']['searching_method'],
+                                  number_of_images = job['job_kwargs']['kwargs']['number_of_images'],
+                                  job_logs = job['logs'])
+        )
+    return data_table
 
 @app.callback(
     Output('job-logs', 'value'),

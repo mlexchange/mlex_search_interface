@@ -503,7 +503,7 @@ job_status_display = [
             ),
             dcc.Interval(
                 id='job-refresher',
-                interval=1*2000, # milliseconds
+                interval=1*1000, # milliseconds
                 n_intervals=0,
                 ),
             ]

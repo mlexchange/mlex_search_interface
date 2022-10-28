@@ -1,3 +1,4 @@
+import base64
 import dash
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output, State
@@ -6,27 +7,23 @@ from dash import dash_table
 import dash_uploader as du
 import dash_daq as daq
 from dash.exceptions import PreventUpdate
-import imageio
-import numpy as np
-import plotly.express as px
-import plotly.graph_objs as go
-import requests
-import json
-import datetime
-import os
-import pathlib
-import zipfile
-import shutil
 from file_manager import filename_list, move_a_file, move_dir, docker_to_local_path, \
                          add_paths_from_dir, check_duplicate_filename
 import helper_utils
+import imageio
+import json
+import math
+import numpy as np
+import os
+import pathlib
+import plotly.express as px
+import plotly.graph_objs as go
+import requests
+import shutil
 import uuid
+import zipfile
 
-# import from file_manager
-import base64, math
-
-
-#------------App Setup------------#
+#------------App Setup-------------------#
 external_stylesheets = [dbc.themes.BOOTSTRAP, "assets/segmentation-style.css"]
 
 app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)

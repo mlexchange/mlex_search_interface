@@ -2,9 +2,9 @@ import requests
 from dash import html
 import dash_bootstrap_components as dbc
 import plotly.express as px
+import plotly.graph_objs as go
 
-
-
+#------File Manager Related-----------#
 def get_job(user, mlex_app):
     url = 'http://job-service:8080/api/v0/jobs?'
     if user:
@@ -90,3 +90,35 @@ def draw_rows(list_of_contents, list_of_names, n_cols, n_rows):
             visible.append(1)
         children.append(dbc.Row(row_child))
     return children
+
+#-----------Search Panel Display------------#
+def parse_images(img):
+    # Convert the image string to numpy array and create a
+    # Plotly figure, see https://plotly.com/python/imshow/
+    fig = px.imshow(img)
+
+    # Hide the axes and the tooltips
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(t=20, b=0, l=0, r=0),
+        xaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            linewidth=0
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            linewidth=0
+        ),
+        hovermode=False
+    )
+    return fig
+
+def blank_fig():
+    fig = go.Figure(go.Scatter(x=[], y = []))
+    fig.update_layout(template = None)
+    fig.update_xaxes(showgrid = False, showticklabels = False, zeroline=False)
+    fig.update_yaxes(showgrid = False, showticklabels = False, zeroline=False)
+    return fig

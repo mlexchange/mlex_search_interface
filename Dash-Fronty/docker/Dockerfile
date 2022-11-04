@@ -15,11 +15,10 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install --upgrade pip &&\
     pip3 install -r requirements.txt 
 
-WORKDIR /app/dash-fronty
-ENV HOME /app/dash-fronty
+WORKDIR /app/work
+ENV HOME /app/work
 COPY src src
 ENV PYTHONUNBUFFERED=1
 
-CMD bash
-WORKDIR /app/dash-fronty/src
-CMD python3 app.py
+CMD ["bash"]
+CMD python3 src/search_panel.py

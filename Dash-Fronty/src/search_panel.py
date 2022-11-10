@@ -7,7 +7,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from file_manager import filename_list, move_a_file, move_dir, docker_to_local_path, \
                          add_paths_from_dir
-from helper_utils import init_counters, parse_images
+from helper_utils import init_counters, parse_images, draw_rows
 import imageio
 import json
 import math
@@ -154,7 +154,7 @@ def image_display(n, row, data):
         cnn = data[row[0]]['cnn']
         number_of_images = data[row[0]]['number_of_images']
         searching_method = data[row[0]]['searching_method']
-        img_path = f'../../data/output/{search_id}/result_{database}_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
+        img_path = f'../data/output/{search_id}/result_{database}_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
         img = np.array(imageio.imread(img_path))
         img = parse_images(img)
 
@@ -451,7 +451,7 @@ def update_output(image_order, button_prev_page, button_next_page, rows, import_
                 else:
                     new_filenames.append(docker_to_local_path(list_filename[image_order[i]], DOCKER_HOME, LOCAL_HOME, 'str'))
                 
-            children = helper_utils.draw_rows(new_contents, new_filenames, NUMBER_IMAGES_PER_ROW, NUMBER_OF_ROWS)
+            children = draw_rows(new_contents, new_filenames, NUMBER_IMAGES_PER_ROW, NUMBER_OF_ROWS)
 
     return children, current_page==0, math.ceil((num_imgs//NUMBER_IMAGES_PER_ROW)/NUMBER_OF_ROWS)<=current_page+1, \
            current_page

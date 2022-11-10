@@ -58,12 +58,12 @@ def image_search(n_clicks, category, cnn, searching_method, number_of_images, co
     # initializes the counter according to the latest deploy job in the database
     counts = init_counters(USER, 'deploy')
 
-    database_dir = f'data/database/{category}/'
-    query_dir = 'data/query/'
-    output_dir = 'data/output/'
+    database_dir = f'../data/database/{category}/'
+    query_dir = '../data/query/'
+    output_dir = '../data/output/'
     experiment_id = str(uuid.uuid4())  # create unique id for experiment
     search_id = f'deploy_{counts}_' + experiment_id
-    pre_trained_cnn = f'data/cnn/{cnn}.h5'
+    pre_trained_cnn = f'../data/cnn/{cnn}.h5'
 
     paras = {
         "feature_extraction_method": cnn, 

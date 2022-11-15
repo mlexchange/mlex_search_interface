@@ -28,13 +28,15 @@ external_stylesheets = [dbc.themes.BOOTSTRAP, "assets/segmentation-style.css"]
 
 app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
 
+app.title = 'MLExchange Search'
+
 #------------Global Variable-------------#
 USER = 'Dummy-Searcher' 
 
 NUMBER_OF_ROWS = 4
 NUMBER_IMAGES_PER_ROW = 4
 
-DOCKER_DATA = pathlib.Path.home().parent / 'data'
+DOCKER_DATA = pathlib.Path.home() / 'data'
 LOCAL_DATA = str(os.environ['DATA_DIR'])
 DOCKER_HOME = str(DOCKER_DATA) + '/'
 LOCAL_HOME = str(LOCAL_DATA) 

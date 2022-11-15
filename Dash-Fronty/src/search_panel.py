@@ -154,7 +154,8 @@ def image_display(n, row, data):
         cnn = data[row[0]]['cnn']
         number_of_images = data[row[0]]['number_of_images']
         searching_method = data[row[0]]['searching_method']
-        img_path = f'../data/output/{search_id}/result_{database}_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
+        
+        img_path = f'{DOCKER_DATA}/output/{search_id}/result_{database}_{cnn}_ed_{number_of_images}_searching_method_{searching_method}.png'
         img = np.array(imageio.imread(img_path))
         img = parse_images(img)
 

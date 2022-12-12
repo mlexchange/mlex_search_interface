@@ -3,8 +3,6 @@ from pydantic import BaseModel
 from elasticsearch import Elasticsearch, exceptions
 from elasticsearch_dsl import Search, Index, Document
 from ssl import create_default_context
-import json
-import requests
 
 #----------Elastic Authentication----------#
 cert = create_default_context(cafile = '/app/fastapi/src/certs/ca/ca.crt')
@@ -56,26 +54,6 @@ def search(keyword: str) -> list:
     '''
     resp = Search().using(es).query("multi_match", query = keyword, fuzziness = "AUTO").extra(track_total_hits = True).execute()
     return list(resp)
-
-#----------POST----------#
-# This part has already been added in content registry
-# @app.post(API_URL_PREFIX + '/receiver', status_code=201, tags = ['Webhook'])
-# def webhook_receiver(msg: dict):
-#     content_id = msg['content_id']
-#     content_type = msg['content_type']
-#     params = {
-#         'index': content_type,
-#         'doc_id': content_id}
-#     if msg['event'] == 'add_content':
-#         content = requests.get(f'http://content-api:8000/api/v0/contents/{content_id}/content').json()
-#         content_data = {}
-#         for key, value in content.items():
-#             if key in KEYS:
-#                 content_data[key] = value
-#         requests.post('http://search-api:8060/api/v0/index/document', params = params, json = content_data)
-#     elif msg['event'] == 'delete_content':
-#         requests.delete(f'http://search-api:8060/api/v0/index/{content_type}/document/{content_id}')
-
 
 @app.post(API_URL_PREFIX + '/index', status_code=201, tags = ['Index'])
 def create_index(req: NewIndex):

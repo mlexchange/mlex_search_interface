@@ -285,8 +285,8 @@ services:
     environment:
       DATA_DIR: "${PWD}/Data/"
     volumes:
-      - ./Dash-Fronty/src:/app/dash-fronty/src
-      - ./Data:/app/data
+      - ./Dash-Fronty/src:/app/work/src
+      - ./Data:/app/work/data
     networks:
       - computing_api_default
     expose:
